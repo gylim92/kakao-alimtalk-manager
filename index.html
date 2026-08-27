@@ -260,8 +260,15 @@
     mobileUrl:{label:'Mobile 링크', placeholder:'https://#{랜딩URL}'},
     pcUrl:{label:'PC 링크 (선택)', placeholder:'https://#{랜딩URL}'},
     androidScheme:{label:'AOS 스킴', placeholder:'myapp://...'},
-    iosScheme:{label:'iOS 스킴', placeholder:'myapp://...'}
+    iosScheme:{label:'iOS 스킴', placeholder:'myapp://...'},
+    formUrl:{label:'비즈니스폼 링크', placeholder:'https://business.kakao.com/form/...'},
+    phoneNumber:{label:'전화번호', placeholder:'02-1234-5678'},
+    mapAddress:{label:'주소', placeholder:'서울특별시 ...'},
+    mapUrl:{label:'지도 링크 (선택)', placeholder:'https://map.kakao.com/...'}
   };
+
+  // 버튼 데이터에 들어갈 수 있는 모든 필드 키 (blankButton/migrateTemplate에서 공용으로 사용)
+  const ALL_BUTTON_FIELDS = ['mobileUrl','pcUrl','androidScheme','iosScheme','formUrl','phoneNumber','mapAddress','mapUrl'];
 
   // 카카오 알림톡 공식 버튼 유형. fields: 해당 타입에서 노출할 입력 필드.
   const BUTTON_TYPE_CONFIG = {
@@ -271,12 +278,20 @@
       help:'AOS 스킴 · iOS 스킴 · Mobile 링크 중 2개 이상을 입력해야 합니다. PC 링크는 선택입니다.'},
     '배송조회':{code:'DS', fields:[],
       help:'본문에 택배사명과 송장번호가 포함되면 배송조회 버튼이 자동으로 노출됩니다. 별도 링크 입력은 필요하지 않습니다.'},
-    '봇전환':{code:'BK', fields:[],
-      help:'버튼 클릭 시 버튼명이 챗봇으로 전달됩니다. 별도 링크가 필요하지 않습니다.'},
-    '상담톡전환':{code:'BT', fields:[],
+    '봇키워드':{code:'BK', fields:[],
+      help:'버튼 클릭 시 버튼명(키워드)이 챗봇으로 전달됩니다. 바로연결 버튼이며 별도 링크가 필요하지 않습니다.'},
+    '봇전환':{code:'BT', fields:[],
+      help:'챗봇 관리자센터의 챗봇을 사용하는 채널에서만 등록할 수 있습니다. 별도 링크가 필요하지 않습니다.'},
+    '상담톡전환':{code:'BC', fields:[],
       help:'상담톡을 사용하는 채널에서만 등록할 수 있습니다. 별도 링크가 필요하지 않습니다.'},
     '메시지전달':{code:'MD', fields:[],
-      help:'버튼 클릭 시 버튼명이 상담원에게 전달됩니다. 별도 링크가 필요하지 않습니다.'},
+      help:'버튼 클릭 시 버튼명과 메시지 본문이 함께 전달됩니다. 별도 링크가 필요하지 않습니다.'},
+    '비즈니스폼':{code:'BF', fields:['formUrl'],
+      help:'카카오 비즈니스폼 링크를 입력하세요. 클릭 시 신청서/설문 등 폼 페이지로 연결됩니다.'},
+    '전화하기':{code:'TEL', fields:['phoneNumber'],
+      help:'클릭 시 입력한 번호로 바로 전화 연결됩니다. 하이픈(-) 포함 형식을 권장합니다.'},
+    '지도보기':{code:'MAP', fields:['mapAddress','mapUrl'],
+      help:'주소는 필수이며, 커스텀 지도 링크는 선택입니다. 클릭 시 카카오맵으로 연결됩니다.'},
     '채널 추가':{code:'AC', fields:[], fixedLabel:'채널 추가',
       help:'채널추가형·복합형 템플릿에서만 사용 가능하며, 버튼명은 [채널 추가]로 고정됩니다.'}
   };
@@ -306,7 +321,9 @@
   function escapeAttr(v){ return escapeHtml(v||''); }
 
   function blankButton(){
-    return {type:'웹링크', label:'', mobileUrl:'', pcUrl:'', androidScheme:'', iosScheme:''};
+    const b = {type:'웹링크', label:''};
+    ALL_BUTTON_FIELDS.forEach(f => b[f] = '');
+    return b;
   }
 
   // 이전 버전 데이터 / 새 템플릿을 현재 스키마 규칙에 맞게 정리
@@ -315,14 +332,9 @@
     t.buttons = (t.buttons||[]).map(b=>{
       const type = BUTTON_TYPE_LIST.includes(b.type) ? b.type : '웹링크';
       const cfg = BUTTON_TYPE_CONFIG[type];
-      return {
-        type,
-        label: cfg.fixedLabel || b.label || '',
-        mobileUrl: b.mobileUrl||'',
-        pcUrl: b.pcUrl||'',
-        androidScheme: b.androidScheme||'',
-        iosScheme: b.iosScheme||''
-      };
+      const cleaned = { type, label: cfg.fixedLabel || b.label || '' };
+      ALL_BUTTON_FIELDS.forEach(f => cleaned[f] = b[f] || '');
+      return cleaned;
     });
 
     if(!STATUS_OPTIONS.includes(t.status)){
@@ -724,11 +736,19 @@
       renderPreview();
     });
 
+    function isDuplicateValue(target, field){
+      const val = (target[field] || '').trim();
+      if(!val) return false;
+      return templates.some(other => other.id !== target.id && (other[field] || '').trim() === val);
+    }
+
     function validateTemplate(target){
       const errors = [];
       if(!target.name || !target.name.trim()) errors.push('템플릿명을 입력해주세요.');
+      else if(isDuplicateValue(target, 'name')) errors.push('이미 등록된 템플릿명과 중복됩니다.');
       if(!target.status || target.status === '선택') errors.push('템플릿 상태를 선택해주세요.');
       if(!target.code || !target.code.trim()) errors.push('템플릿 코드를 입력해주세요.');
+      else if(isDuplicateValue(target, 'code')) errors.push('이미 등록된 템플릿 코드와 중복됩니다.');
       if(!target.content || !target.content.trim()) errors.push('템플릿 내용을 입력해주세요.');
       if(!target.sendTiming || !target.sendTiming.trim()) errors.push('발송 시점을 입력해주세요.');
       if(!target.sendTarget || !target.sendTarget.trim()) errors.push('발송 대상을 입력해주세요.');
