@@ -7,7 +7,7 @@
 
 const SHEET_NAME = 'templates';
 const IMAGE_FOLDER_ID = '여기에_구글드라이브_이미지_폴더_ID_입력';
-const HEADERS = ['id','code','name','status','messageType','content','buttons','sendTiming','sendTarget','note','hasImage','imageUrl','updatedAt'];
+const HEADERS = ['id','code','name','status','messageType','content','buttons','sendTiming','sendTarget','note','hasImage','imageUrl','updatedAt','createdAt'];
 
 function getSheet(){
   return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
@@ -69,8 +69,10 @@ function saveTemplate(t){
   const sheet = getSheet();
   ensureHeaders(sheet);
   if(!t.id) t.id = Utilities.getUuid();
-  // 한국 시간(KST)으로 저장
-  t.updatedAt = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss');
+  // 클라이언트(브라우저)가 이미 한국 시간으로 만들어 보낸 값을 우선 사용한다.
+  // 혹시 안 보내온 경우에만 서버에서 KST로 채운다 (구버전 클라이언트 호환용).
+  if(!t.updatedAt) t.updatedAt = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss');
+  if(!t.createdAt) t.createdAt = t.updatedAt;
   const rowValues = HEADERS.map(h=>{
     if(h === 'buttons') return JSON.stringify(t.buttons||[]);
     if(h === 'hasImage') return t.hasImage ? true : ''; // 이미지 없으면 빈 칸으로 표시 (FALSE 대신)

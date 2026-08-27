@@ -126,6 +126,7 @@
   .overview-card-name{font-size:14px; font-weight:700; line-height:1.35; margin-bottom:6px;}
   .overview-card-meta{font-size:11.5px; color:var(--ink-soft);}
   .editor-head{display:flex; justify-content:space-between; align-items:flex-end; gap:14px; margin-bottom:18px;}
+  .editor-dates{display:flex; gap:14px; font-size:11.5px; color:var(--ink-soft); margin-bottom:10px;}
   .editor-head .status-field{width:180px; flex-shrink:0;}
   .field-row{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;}
   .field-row.single{grid-template-columns:1fr;}
@@ -208,8 +209,8 @@
     </div>
     <div class="top-actions">
       <button class="btn btn-sm" id="overviewBtn">전체 목록</button>
-      <button class="btn btn-sm" id="exportBtn">내보내기</button>
-      <label class="btn btn-sm" for="importFile" style="margin:0;">가져오기</label>
+      <button class="btn btn-sm" id="exportBtn" title="셀 안에서 줄바꿈이 필요하면 Alt+Enter를 쓰거나, 그냥 텍스트로 \n 을 입력하세요.">내보내기</button>
+      <label class="btn btn-sm" for="importFile" style="margin:0;" title="셀 안에서 줄바꿈이 필요하면 Alt+Enter를 쓰거나, 그냥 텍스트로 \n 을 입력하세요.">가져오기</label>
       <input type="file" id="importFile" accept=".xls,.xlsx,.json,application/json">
       <button class="btn btn-primary btn-sm" id="newTplBtn">+ 새 템플릿</button>
     </div>
@@ -308,6 +309,16 @@
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 
   function uid(){ return 'tpl_' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+  // 브라우저 표준시가 무엇이든 상관없이 항상 한국 시간(KST) 문자열을 만든다.
+  function nowKstString(){
+    const parts = new Intl.DateTimeFormat('ko-KR', {
+      timeZone:'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit',
+      hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false
+    }).formatToParts(new Date());
+    const get = t => (parts.find(p=>p.type===t) || {}).value || '';
+    return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
+  }
 
   function toast(msg){
     const t = $('#toast');
@@ -598,8 +609,14 @@
     }
 
     const isImageType = t.messageType === '이미지형';
+    const metaDates = (t.createdAt || t.updatedAt) ? `
+      <div class="editor-dates">
+        <span>등록일: ${escapeHtml(t.createdAt || '-')}</span>
+        <span>수정일: ${escapeHtml(t.updatedAt || '-')}</span>
+      </div>` : '';
 
     panel.innerHTML = `
+      ${metaDates}
       <div class="editor-head">
         <div style="flex:1;">
           <label>템플릿명<span class="req-dot"></span></label>
@@ -786,8 +803,11 @@
         alert('다음 항목을 확인해주세요.\n\n' + errors.join('\n'));
         return;
       }
+      if(!t.createdAt) t.createdAt = nowKstString();
+      t.updatedAt = nowKstString();
       t._unsaved = false;
       await saveTemplateRemote(t, false);
+      renderEditor();
       renderList();
     });
 
@@ -1029,13 +1049,17 @@
   }
 
   function stripCellBreaks(v){
-    return String(v == null ? '' : v).replace(/<br\s*\/?>/gi, '\n');
+    return String(v == null ? '' : v)
+      .replace(/<br\s*\/?>/gi, '\n')  // 예전 내보내기(HTML) 잔재 정리
+      .replace(/\r\n/g, '\n')          // Windows 줄바꿈
+      .replace(/\r/g, '\n')            // 구형 Mac 줄바꿈
+      .replace(/\\n/g, '\n');          // 셀에 직접 입력한 "\n" 텍스트 마커 (Alt+Enter 없이 줄바꿈 표시용)
   }
 
   // 엑셀(내보내기 형식) 한 행을 내부 템플릿 스키마로 변환
   function rowToTemplate(row){
     return {
-      id: uid(),
+      id: '', // 실제 id는 importTemplates에서 코드 일치 여부를 보고 결정한다.
       code: stripCellBreaks(row['템플릿 코드']),
       name: stripCellBreaks(row['템플릿명']),
       status: stripCellBreaks(row['상태']) || '선택',
@@ -1047,20 +1071,34 @@
       note: stripCellBreaks(row['비고']),
       hasImage: stripCellBreaks(row['이미지 여부']).trim().toUpperCase() === 'Y',
       image: stripCellBreaks(row['이미지 URL']) || null,
+      createdAt: stripCellBreaks(row['등록일시']),
       updatedAt: stripCellBreaks(row['수정일시'])
     };
   }
 
-  // 여러 개의 템플릿(JSON/엑셀 공통)을 순차 등록: 필요 시 이미지 업로드까지 처리 후 시트에 저장
-  // 필수 입력 조건을 만족하지 못하는 행은 등록하지 않고 건너뛴다.
+  // 여러 개의 템플릿(JSON/엑셀 공통)을 순차 등록/업데이트한다.
+  // 템플릿 코드가 기존 항목과 일치하면 '신규 추가'가 아니라 '업데이트'로 처리한다.
+  // 필수 입력 조건을 만족하지 못하는 행은 등록/업데이트하지 않고 건너뛴다.
   async function importTemplates(list){
-    const withIds = [];
+    const added = [];
+    let updatedCount = 0;
     const skipped = [];
+
     for(const d of list){
-      if(!d.id) d.id = uid();
+      const codeVal = (d.code || '').trim();
+      const existing = codeVal ? templates.find(x => (x.code||'').trim() === codeVal) : null;
+      if(existing){
+        d.id = existing.id; // 기존 템플릿을 그대로 덮어쓰기 위해 같은 id 사용
+        d.createdAt = existing.createdAt || d.createdAt || nowKstString(); // 등록일은 유지
+      }else{
+        if(!d.id) d.id = uid();
+        if(!d.createdAt) d.createdAt = nowKstString();
+      }
+      d.updatedAt = nowKstString(); // 수정일은 가져오는 시점으로 항상 갱신
+
       const migrated = migrateTemplate(d);
 
-      const errors = validateTemplateAgainst(migrated, templates.concat(withIds));
+      const errors = validateTemplateAgainst(migrated, templates.concat(added));
       if(errors.length){
         skipped.push({ name: migrated.name || migrated.code || '(이름 없음)', errors });
         continue;
@@ -1080,17 +1118,26 @@
         }
       }
       await saveTemplateRemote(migrated, true);
-      withIds.push(migrated);
+
+      if(existing){
+        const idx = templates.findIndex(x => x.id === migrated.id);
+        if(idx !== -1) templates[idx] = migrated;
+        updatedCount++;
+      }else{
+        added.push(migrated);
+      }
     }
-    templates = templates.concat(withIds);
-    selectTemplate(withIds[0] ? withIds[0].id : selectedId);
+
+    templates = templates.concat(added);
+    selectTemplate(added[0] ? added[0].id : selectedId);
     renderAll();
 
+    const summary = `신규 ${added.length}개 등록, ${updatedCount}개 업데이트`;
     if(skipped.length){
       const detail = skipped.map(s => `- ${s.name}: ${s.errors.join(', ')}`).join('\n');
-      alert(`${withIds.length}개를 가져왔습니다.\n${skipped.length}개는 필수 항목이 비어있거나 조건에 맞지 않아 건너뛰었습니다.\n\n${detail}`);
+      alert(`${summary}\n${skipped.length}개는 필수 항목이 비어있거나 조건에 맞지 않아 건너뛰었습니다.\n\n${detail}`);
     }else{
-      toast(`${withIds.length}개 템플릿을 가져왔습니다`);
+      toast(summary);
     }
   }
 
@@ -1111,7 +1158,7 @@
   }
 
   $('#exportBtn').addEventListener('click', ()=>{
-    const cols = ['템플릿 코드','템플릿명','상태','메시지유형','템플릿 내용','버튼','발송 시점','발송 대상','비고','이미지 여부','이미지 URL','수정일시'];
+    const cols = ['템플릿 코드','템플릿명','상태','메시지유형','템플릿 내용','버튼','발송 시점','발송 대상','비고','이미지 여부','이미지 URL','등록일시','수정일시'];
     const rows = templates.map(t=>[
       t.code || '',
       t.name || '',
@@ -1124,6 +1171,7 @@
       t.note || '',
       t.hasImage ? 'Y' : '',
       t.image || '',
+      toKstDisplay(t.createdAt),
       toKstDisplay(t.updatedAt)
     ]);
 
