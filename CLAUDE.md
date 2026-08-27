@@ -19,7 +19,7 @@ Confluence 표 대신 관리하기 위한 웹 앱. 실제 카카오톡 화면과
 - 템플릿 필드: `id, code, name, status, messageType, content, buttons[], sendTiming, sendTarget, note, hasImage, imageUrl, updatedAt`
 - 상태(status) 8단계: 선택(기본값) / 검수 전 / 검수 중 / 검수완료 / 사용중 / 휴면 / 중지 / 차단
 - 메시지유형(messageType): 기본형(기본값) / 이미지형 — **강조표기형·아이템리스트형은 의도적으로 제외**
-- 버튼 타입 7종: 웹링크(기본값) / 앱링크 / 배송조회 / 봇전환 / 상담톡전환 / 메시지전달 / 채널 추가
+- 버튼 타입 11종: 웹링크(기본값) / 앱링크 / 배송조회 / 봇키워드 / 봇전환 / 상담톡전환 / 메시지전달 / 비즈니스폼 / 전화하기 / 지도보기 / 채널 추가
   (타입별로 필요한 입력 필드가 다름 — 코드의 `BUTTON_TYPE_CONFIG` 참고)
 
 ## 절대 되돌리면 안 되는 결정들
