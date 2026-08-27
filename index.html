@@ -381,6 +381,7 @@
     const payload = { ...t };
     payload.imageUrl = t.image || '';
     delete payload.image;
+    delete payload._unsaved;
     const res = await fetch(API_BASE_URL, {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'}, // Apps Script CORS 프리플라이트 회피용
@@ -476,6 +477,17 @@
 
   function getSelected(){ return templates.find(t => t.id === selectedId) || null; }
 
+  // 저장하지 않은 새 템플릿(_unsaved)이 있는 상태로 다른 화면으로 이동하면
+  // 목록/시트에 남지 않도록 로컬에서 제거한다.
+  function discardUnsavedDraft(exceptId){
+    templates = templates.filter(t => !(t._unsaved && t.id !== exceptId));
+  }
+
+  function selectTemplate(id){
+    discardUnsavedDraft(id);
+    selectedId = id;
+  }
+
   function filteredTemplates(){
     return templates.filter(t=>{
       if(statusFilter !== 'all' && t.status !== statusFilter) return false;
@@ -513,7 +525,7 @@
     }).join('');
 
     $$('.tpl-item', list).forEach(el=>{
-      el.addEventListener('click', ()=>{ selectedId = el.dataset.id; renderAll(); });
+      el.addEventListener('click', ()=>{ selectTemplate(el.dataset.id); renderAll(); });
     });
   }
 
@@ -546,7 +558,7 @@
       <div class="field-row">
         <div>
           <label>템플릿 코드</label>
-          <input type="text" id="f_code" value="${escapeAttr(t.code)}" placeholder="KM-MKT000">
+          <input type="text" id="f_code" value="${escapeAttr(t.code)}" placeholder="템플릿 코드 규칙에 맞게 입력하세요.">
         </div>
         <div>
           <label>메시지 유형</label>
@@ -675,7 +687,9 @@
             const result = await apiUploadImage(t.id, base64, file.type);
             t.image = result.url;
             t.hasImage = true;
-            await saveTemplateRemote(t, true);
+            // 아직 한 번도 저장(등록)하지 않은 새 템플릿이면, 파일만 드라이브에 올려두고
+            // 시트에는 '저장' 버튼을 눌러야 반영되도록 한다.
+            if(!t._unsaved) await saveTemplateRemote(t, true);
             renderEditor();
             renderList();
             renderPreview();
@@ -710,7 +724,40 @@
       renderPreview();
     });
 
+    function validateTemplate(target){
+      const errors = [];
+      if(!target.name || !target.name.trim()) errors.push('템플릿명을 입력해주세요.');
+      if(!target.status || target.status === '선택') errors.push('템플릿 상태를 선택해주세요.');
+      if(!target.code || !target.code.trim()) errors.push('템플릿 코드를 입력해주세요.');
+      if(!target.content || !target.content.trim()) errors.push('템플릿 내용을 입력해주세요.');
+      if(!target.sendTiming || !target.sendTiming.trim()) errors.push('발송 시점을 입력해주세요.');
+      if(!target.sendTarget || !target.sendTarget.trim()) errors.push('발송 대상을 입력해주세요.');
+      if(target.messageType === '이미지형' && !target.image) errors.push('메시지 유형이 이미지형이면 이미지를 등록해야 합니다.');
+
+      (target.buttons||[]).forEach((b, i)=>{
+        const cfg = BUTTON_TYPE_CONFIG[b.type] || BUTTON_TYPE_CONFIG['웹링크'];
+        if(!cfg.fixedLabel && (!b.label || !b.label.trim())){
+          errors.push(`버튼 ${i+1}: 버튼명을 입력해주세요.`);
+        }
+        cfg.fields.forEach(f=>{
+          const meta = FIELD_META[f];
+          const isOptional = meta.label.includes('(선택)');
+          if(!isOptional && (!b[f] || !String(b[f]).trim())){
+            errors.push(`버튼 ${i+1}: ${meta.label}을(를) 입력해주세요.`);
+          }
+        });
+      });
+
+      return errors;
+    }
+
     $('#saveBtn', panel).addEventListener('click', async ()=>{
+      const errors = validateTemplate(t);
+      if(errors.length){
+        alert('다음 항목을 확인해주세요.\n\n' + errors.join('\n'));
+        return;
+      }
+      t._unsaved = false;
       await saveTemplateRemote(t, false);
       renderList();
     });
@@ -720,7 +767,7 @@
       if(t.hasImage) await (isRemoteConfigured() ? apiDeleteImage(t.id).catch(e=>console.error(e)) : Promise.resolve());
       await deleteTemplateRemote(t.id);
       templates = templates.filter(x=>x.id !== t.id);
-      selectedId = null;
+      selectTemplate(null);
       renderAll();
     });
   }
@@ -765,7 +812,7 @@
 
     $$('.overview-card', panel).forEach(el=>{
       el.addEventListener('click', ()=>{
-        selectedId = el.dataset.id;
+        selectTemplate(el.dataset.id);
         renderAll();
       });
     });
@@ -905,19 +952,19 @@
 
 
   $('#overviewBtn').addEventListener('click', ()=>{
-    selectedId = null;
+    selectTemplate(null);
     renderAll();
   });
 
-  $('#newTplBtn').addEventListener('click', async ()=>{
+  $('#newTplBtn').addEventListener('click', ()=>{
     const t = {
-      id: uid(), code:'', name:'새 템플릿', status:'선택',
+      id: uid(), code:'', name:'', status:'선택',
       messageType:'기본형', hasImage:false, image:null, content:'',
-      buttons:[], note:'', sendTiming:'', sendTarget:''
+      buttons:[], note:'', sendTiming:'', sendTarget:'',
+      _unsaved: true // 저장 버튼을 눌러야만 시트에 반영됨
     };
     templates.unshift(t);
-    selectedId = t.id;
-    await saveTemplateRemote(t, true);
+    selectTemplate(t.id);
     renderAll();
   });
 
