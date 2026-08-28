@@ -16,7 +16,8 @@ Confluence 표 대신 관리하기 위한 웹 앱. 실제 카카오톡 화면과
 | 백엔드 API | 구글 Apps Script (스프레드시트에 연결됨) | 저장/조회/삭제/이미지 업로드 처리. 코드 백업: `apps-script-backup.gs` |
 
 ## 데이터 모델
-- 템플릿 필드: `id, code, name, status, messageType, content, buttons[], sendTiming, sendTarget, note, hasImage, imageUrl, updatedAt`
+- 템플릿 필드: `id, code, name, status, messageType, content, varExample, buttons[], sendTiming, sendTarget, note, hasImage, imageUrl, updatedAt, createdAt`
+- `varExample`: 템플릿 내용(`content`)의 `#{변수}`에 실제 값을 채운 예시를 사용자가 직접 입력하는 필드(선택 입력, 자동 생성 아님). 미리보기 상단의 "변수 적용 전/후" 토글로 확인 — 기본값은 "적용 전"(`content` 그대로 표시)
 - 상태(status) 8단계: 선택(기본값) / 검수 전 / 검수 중 / 검수완료 / 사용중 / 휴면 / 중지 / 차단
 - 메시지유형(messageType): 기본형(기본값) / 이미지형 — **강조표기형·아이템리스트형은 의도적으로 제외**
 - 버튼 타입 11종: 웹링크(기본값) / 앱링크 / 배송조회 / 봇키워드 / 봇전환 / 상담톡전환 / 메시지전달 / 비즈니스폼 / 전화하기 / 지도보기 / 채널 추가

@@ -188,9 +188,9 @@
   .info-block ul{margin:0 0 12px; padding-left:16px; font-size:12.5px; line-height:1.6; color:var(--ink);}
   .info-block p{margin:0 0 12px; font-size:12.5px; line-height:1.6; color:var(--ink);}
   .info-block .muted{color:var(--ink-soft); font-style:normal;}
-  .var-input-row{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
-  .var-input-row label{flex:0 0 auto; font-size:12.5px; font-weight:700; color:var(--ink-soft); white-space:nowrap;}
-  .var-input-row input{flex:1;}
+  .preview-toggle{display:flex; gap:6px; margin-bottom:12px;}
+  .preview-toggle-btn{flex:1; padding:7px 8px; font-size:12px; font-weight:700; border-radius:8px; border:1px solid var(--line-strong); background:var(--surface); color:var(--ink-soft); cursor:pointer;}
+  .preview-toggle-btn.active{background:var(--accent); border-color:var(--accent); color:#fff;}
 
   .toast{
     position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
@@ -304,8 +304,8 @@
   let selectedId = null;
   let statusFilter = 'all';
   let searchTerm = '';
-  // 미리보기 전용 변수 예시 값 (저장되지 않음). key: 템플릿 id, value: {변수명: 예시값}
-  let previewVarValues = {};
+  // 미리보기 토글 상태: true면 '변수 적용 후'(t.varExample) 표시. 템플릿 선택 시 기본값(false)으로 초기화됨.
+  let previewShowExample = false;
 
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
@@ -365,6 +365,7 @@
     if(!MESSAGE_TYPE_OPTIONS.includes(t.messageType)) t.messageType = '기본형';
     delete t.emphasisType;
     if(typeof t.hasImage !== 'boolean') t.hasImage = !!t.hasImage;
+    if(!t.varExample) t.varExample = '';
     return t;
   }
 
@@ -513,6 +514,7 @@
   function selectTemplate(id){
     discardUnsavedDraft(id);
     selectedId = id;
+    previewShowExample = false;
   }
 
   // 저장 시 사용하는 유효성 검사.
@@ -670,6 +672,13 @@
         </div>
       </div>
 
+      <div class="field-row single">
+        <div>
+          <label>변수 적용 예시</label>
+          <textarea id="f_varExample" rows="9" placeholder="템플릿 내용의 #{변수}에 실제 값을 채운 예시를 입력하세요. 미리보기에서 '변수 적용 후'로 확인할 수 있습니다."></textarea>
+        </div>
+      </div>
+
       <div class="section-title">버튼</div>
       <div id="buttonList"></div>
       <button type="button" class="add-link" id="addButtonBtn">+ 버튼 추가</button>
@@ -700,6 +709,7 @@
 
     // 줄바꿈을 있는 그대로 보존하기 위해 innerHTML이 아닌 .value로 직접 대입한다.
     $('#f_content', panel).value = t.content || '';
+    $('#f_varExample', panel).value = t.varExample || '';
     $('#f_timing', panel).value = t.sendTiming || '';
     $('#f_target', panel).value = t.sendTarget || '';
     $('#f_note', panel).value = t.note || '';
@@ -716,6 +726,7 @@
     syncField('#f_name','name');
     syncField('#f_code','code');
     syncField('#f_content','content');
+    syncField('#f_varExample','varExample');
     syncField('#f_timing','sendTiming');
     syncField('#f_target','sendTarget');
     syncField('#f_note','note');
@@ -951,29 +962,6 @@
     $('#countLabel').textContent = `총 ${templates.length}개 · 사용중 ${templates.filter(x=>x.status==='사용중').length}개`;
   }
 
-  // 본문에서 #{변수명} 형태를 모두 찾아 등장 순서대로, 중복 없이 반환한다.
-  function extractContentVariables(text){
-    if(!text) return [];
-    const found = [];
-    const seen = new Set();
-    const re = /#\{([^}]+)\}/g;
-    let m;
-    while((m = re.exec(text))){
-      const name = m[1].trim();
-      if(name && !seen.has(name)){ seen.add(name); found.push(name); }
-    }
-    return found;
-  }
-
-  // #{변수명}을 입력된 예시 값으로 치환한다. 값이 비어 있으면 원래 표기를 그대로 둔다.
-  function applyContentVars(text, vars){
-    if(!text) return text;
-    return text.replace(/#\{([^}]+)\}/g, (whole, name)=>{
-      const val = vars[name.trim()];
-      return (val && val.trim()) ? val : whole;
-    });
-  }
-
   function renderPreview(){
     const panel = $('#previewPanel');
     const t = getSelected();
@@ -992,35 +980,27 @@
     const minute = String(now.getMinutes()).padStart(2,'0');
     const timeLabel = `${ampm} ${hour12}:${minute}`;
 
-    const contentVars = extractContentVariables(t.content);
-    if(!previewVarValues[t.id]) previewVarValues[t.id] = {};
-    const varValues = previewVarValues[t.id];
-    const previewContent = applyContentVars(t.content || '', varValues);
+    const hasExample = !!(t.varExample && t.varExample.trim());
+    const displayedContent = (previewShowExample && hasExample) ? t.varExample : t.content;
 
     panel.innerHTML = `
       <h3>미리보기</h3>
+      <div class="preview-toggle">
+        <button type="button" class="preview-toggle-btn ${!previewShowExample ? 'active' : ''}" data-mode="before">변수 적용 전</button>
+        <button type="button" class="preview-toggle-btn ${previewShowExample ? 'active' : ''}" data-mode="after">변수 적용 후</button>
+      </div>
       <div class="kakao-frame">
         <div class="kakao-bubble-wrap">
           <div class="kakao-bubble">
             <span class="kakao-arrived">알림톡 도착</span>
             ${t.messageType === '이미지형' && t.image ? `<img src="${t.image}" alt="템플릿 이미지" class="kakao-image">` : ''}
-            <div class="kakao-body">${escapeHtml(previewContent || '내용을 입력하면 여기에 표시됩니다.')}</div>
+            <div class="kakao-body">${escapeHtml(displayedContent || '내용을 입력하면 여기에 표시됩니다.')}</div>
             ${buttonsHtml ? `<div class="kakao-buttons">${buttonsHtml}</div>` : ''}
           </div>
           <span class="kakao-msg-time">${timeLabel}</span>
         </div>
       </div>
-
-      ${contentVars.length ? `
-      <div class="info-block">
-        <h4>변수 예시 값 (미리보기 전용, 저장되지 않음)</h4>
-        ${contentVars.map(v=>`
-          <div class="var-input-row">
-            <label>#{${escapeHtml(v)}}</label>
-            <input type="text" data-var="${escapeAttr(v)}" value="${escapeAttr(varValues[v]||'')}" placeholder="예시 값 입력">
-          </div>
-        `).join('')}
-      </div>` : ''}
+      ${previewShowExample && !hasExample ? `<p class="muted" style="font-size:11.5px; margin-top:8px;">등록된 변수 적용 예시가 없어 원본 내용을 표시합니다.</p>` : ''}
 
       <div class="info-block">
         <h4>상태</h4>
@@ -1034,11 +1014,10 @@
       </div>
     `;
 
-    $$('[data-var]', panel).forEach(el=>{
-      el.addEventListener('input', ()=>{
-        varValues[el.dataset.var] = el.value;
-        const body = $('.kakao-body', panel);
-        if(body) body.innerHTML = escapeHtml(applyContentVars(t.content || '', varValues) || '내용을 입력하면 여기에 표시됩니다.');
+    $$('.preview-toggle-btn', panel).forEach(el=>{
+      el.addEventListener('click', ()=>{
+        previewShowExample = el.dataset.mode === 'after';
+        renderPreview();
       });
     });
   }
@@ -1058,7 +1037,7 @@
   $('#newTplBtn').addEventListener('click', ()=>{
     const t = {
       id: uid(), code:'', name:'', status:'선택',
-      messageType:'기본형', hasImage:false, image:null, content:'',
+      messageType:'기본형', hasImage:false, image:null, content:'', varExample:'',
       buttons:[], note:'', sendTiming:'', sendTarget:'',
       _unsaved: true // 저장 버튼을 눌러야만 시트에 반영됨
     };
@@ -1094,13 +1073,14 @@
   }
 
   $('#exportBtn').addEventListener('click', ()=>{
-    const cols = ['템플릿 코드','템플릿명','상태','메시지유형','템플릿 내용','버튼','발송 시점','발송 대상','비고','이미지 여부','이미지 URL','등록일시','수정일시'];
+    const cols = ['템플릿 코드','템플릿명','상태','메시지유형','템플릿 내용','변수 적용 예시','버튼','발송 시점','발송 대상','비고','이미지 여부','이미지 URL','등록일시','수정일시'];
     const rows = templates.map(t=>[
       t.code || '',
       t.name || '',
       t.status || '',
       t.messageType || '',
       t.content || '',
+      t.varExample || '',
       (t.buttons||[]).map(buttonSummaryText).join(' / '),
       t.sendTiming || '',
       t.sendTarget || '',

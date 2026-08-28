@@ -7,7 +7,7 @@
 
 const SHEET_NAME = 'templates';
 const IMAGE_FOLDER_ID = '여기에_구글드라이브_이미지_폴더_ID_입력';
-const HEADERS = ['id','code','name','status','messageType','content','buttons','sendTiming','sendTarget','note','hasImage','imageUrl','updatedAt','createdAt'];
+const HEADERS = ['id','code','name','status','messageType','content','buttons','sendTiming','sendTarget','note','hasImage','imageUrl','updatedAt','createdAt','varExample'];
 
 function getSheet(){
   return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
