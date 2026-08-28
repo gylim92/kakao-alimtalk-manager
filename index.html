@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>알림톡 템플릿 관리</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
     --bg:#f5f4f1;
@@ -210,8 +209,6 @@
     <div class="top-actions">
       <button class="btn btn-sm" id="overviewBtn">전체 목록</button>
       <button class="btn btn-sm" id="exportBtn" title="셀 안에서 줄바꿈이 필요하면 Alt+Enter를 쓰거나, 그냥 텍스트로 \n 을 입력하세요.">내보내기</button>
-      <label class="btn btn-sm" for="importFile" style="margin:0;" title="셀 안에서 줄바꿈이 필요하면 Alt+Enter를 쓰거나, 그냥 텍스트로 \n 을 입력하세요.">가져오기</label>
-      <input type="file" id="importFile" accept=".xls,.xlsx,.json,application/json">
       <button class="btn btn-primary btn-sm" id="newTplBtn">+ 새 템플릿</button>
     </div>
   </div>
@@ -513,7 +510,7 @@
     selectedId = id;
   }
 
-  // 저장(수동)/가져오기(일괄) 양쪽에서 공용으로 쓰는 유효성 검사.
+  // 저장 시 사용하는 유효성 검사.
   // existingList: 중복 여부를 비교할 대상 목록 (자기 자신은 id로 제외됨)
   function validateTemplateAgainst(target, existingList){
     const errors = [];
@@ -1028,119 +1025,6 @@
     return `${b.type}(${label})${val ? ': ' + val : ''}`;
   }
 
-  // "타입(버튼명): 값" 형태의 요약 텍스트를 다시 버튼 객체로 되돌린다.
-  // 참고: 필드가 2개 이상인 버튼 타입(앱링크, 지도보기)은 대표 필드 1개만 내보내므로,
-  // 엑셀을 통해 다시 가져오면 나머지 필드는 비어있는 상태로 복원된다.
-  function parseButtonsSummary(text){
-    if(!text || !String(text).trim()) return [];
-    return String(text).split(' / ').map(seg=>{
-      const m = seg.trim().match(/^(.+?)\((.*)\)(?::\s*(.*))?$/);
-      if(!m) return null;
-      const rawType = m[1].trim();
-      const type = BUTTON_TYPE_LIST.includes(rawType) ? rawType : '웹링크';
-      const cfg = BUTTON_TYPE_CONFIG[type];
-      const btn = blankButton();
-      btn.type = type;
-      btn.label = cfg.fixedLabel || (m[2] || '').trim();
-      const value = (m[3] || '').trim();
-      if(cfg.fields[0] && value) btn[cfg.fields[0]] = value;
-      return btn;
-    }).filter(Boolean);
-  }
-
-  function stripCellBreaks(v){
-    return String(v == null ? '' : v)
-      .replace(/<br\s*\/?>/gi, '\n')  // 예전 내보내기(HTML) 잔재 정리
-      .replace(/\r\n/g, '\n')          // Windows 줄바꿈
-      .replace(/\r/g, '\n')            // 구형 Mac 줄바꿈
-      .replace(/\\n/g, '\n');          // 셀에 직접 입력한 "\n" 텍스트 마커 (Alt+Enter 없이 줄바꿈 표시용)
-  }
-
-  // 엑셀(내보내기 형식) 한 행을 내부 템플릿 스키마로 변환
-  function rowToTemplate(row){
-    return {
-      id: '', // 실제 id는 importTemplates에서 코드 일치 여부를 보고 결정한다.
-      code: stripCellBreaks(row['템플릿 코드']),
-      name: stripCellBreaks(row['템플릿명']),
-      status: stripCellBreaks(row['상태']) || '선택',
-      messageType: stripCellBreaks(row['메시지유형']) || '기본형',
-      content: stripCellBreaks(row['템플릿 내용']),
-      buttons: parseButtonsSummary(row['버튼']),
-      sendTiming: stripCellBreaks(row['발송 시점']),
-      sendTarget: stripCellBreaks(row['발송 대상']),
-      note: stripCellBreaks(row['비고']),
-      hasImage: stripCellBreaks(row['이미지 여부']).trim().toUpperCase() === 'Y',
-      image: stripCellBreaks(row['이미지 URL']) || null,
-      createdAt: stripCellBreaks(row['등록일시']),
-      updatedAt: stripCellBreaks(row['수정일시'])
-    };
-  }
-
-  // 여러 개의 템플릿(JSON/엑셀 공통)을 순차 등록/업데이트한다.
-  // 템플릿 코드가 기존 항목과 일치하면 '신규 추가'가 아니라 '업데이트'로 처리한다.
-  // 필수 입력 조건을 만족하지 못하는 행은 등록/업데이트하지 않고 건너뛴다.
-  async function importTemplates(list){
-    const added = [];
-    let updatedCount = 0;
-    const skipped = [];
-
-    for(const d of list){
-      const codeVal = (d.code || '').trim();
-      const existing = codeVal ? templates.find(x => (x.code||'').trim() === codeVal) : null;
-      if(existing){
-        d.id = existing.id; // 기존 템플릿을 그대로 덮어쓰기 위해 같은 id 사용
-        d.createdAt = existing.createdAt || d.createdAt || nowKstString(); // 등록일은 유지
-      }else{
-        if(!d.id) d.id = uid();
-        if(!d.createdAt) d.createdAt = nowKstString();
-      }
-      d.updatedAt = nowKstString(); // 수정일은 가져오는 시점으로 항상 갱신
-
-      const migrated = migrateTemplate(d);
-
-      const errors = validateTemplateAgainst(migrated, templates.concat(added));
-      if(errors.length){
-        skipped.push({ name: migrated.name || migrated.code || '(이름 없음)', errors });
-        continue;
-      }
-
-      if(migrated.image && typeof migrated.image === 'string' && migrated.image.startsWith('data:') && isRemoteConfigured()){
-        try{
-          const base64 = migrated.image.split(',')[1];
-          const mimeMatch = migrated.image.match(/^data:([^;]+);/);
-          const result = await apiUploadImage(migrated.id, base64, mimeMatch ? mimeMatch[1] : 'image/png');
-          migrated.image = result.url;
-          migrated.hasImage = true;
-        }catch(err){
-          console.error('imported image upload failed', err);
-          migrated.image = null;
-          migrated.hasImage = false;
-        }
-      }
-      await saveTemplateRemote(migrated, true);
-
-      if(existing){
-        const idx = templates.findIndex(x => x.id === migrated.id);
-        if(idx !== -1) templates[idx] = migrated;
-        updatedCount++;
-      }else{
-        added.push(migrated);
-      }
-    }
-
-    templates = templates.concat(added);
-    selectTemplate(added[0] ? added[0].id : selectedId);
-    renderAll();
-
-    const summary = `신규 ${added.length}개 등록, ${updatedCount}개 업데이트`;
-    if(skipped.length){
-      const detail = skipped.map(s => `- ${s.name}: ${s.errors.join(', ')}`).join('\n');
-      alert(`${summary}\n${skipped.length}개는 필수 항목이 비어있거나 조건에 맞지 않아 건너뛰었습니다.\n\n${detail}`);
-    }else{
-      toast(summary);
-    }
-  }
-
   // 저장된 값이 UTC(...Z)든 이미 KST 문자열이든 상관없이, 내보낼 때는 항상 한국 시간으로 통일한다.
   function toKstDisplay(v){
     if(!v) return '';
@@ -1193,45 +1077,6 @@
     a.remove();
     URL.revokeObjectURL(url);
     toast('엑셀(.xls) 파일로 내보냈습니다');
-  });
-
-  $('#importFile').addEventListener('change', (e)=>{
-    const file = e.target.files[0];
-    if(!file) return;
-    const isJson = /\.json$/i.test(file.name) || file.type === 'application/json';
-
-    if(isJson){
-      const reader = new FileReader();
-      reader.onload = async () => {
-        try{
-          const data = JSON.parse(reader.result);
-          if(!Array.isArray(data)) throw new Error('invalid format');
-          await importTemplates(data);
-        }catch(err){
-          toast('파일을 읽는 중 오류가 발생했습니다');
-          console.error(err);
-        }
-      };
-      reader.readAsText(file);
-    }else{
-      const reader = new FileReader();
-      reader.onload = async () => {
-        try{
-          if(typeof XLSX === 'undefined') throw new Error('XLSX library not loaded');
-          const wb = XLSX.read(reader.result, {type:'array'});
-          const sheet = wb.Sheets[wb.SheetNames[0]];
-          const rows = XLSX.utils.sheet_to_json(sheet, {defval:''});
-          if(!rows.length) throw new Error('empty sheet');
-          const data = rows.map(rowToTemplate);
-          await importTemplates(data);
-        }catch(err){
-          toast('엑셀 파일을 읽는 중 오류가 발생했습니다');
-          console.error(err);
-        }
-      };
-      reader.readAsArrayBuffer(file);
-    }
-    e.target.value = '';
   });
 
   loadData();
