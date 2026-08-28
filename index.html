@@ -199,6 +199,17 @@
   }
   .toast.show{opacity:1; transform:translateX(-50%) translateY(-4px);}
   input[type=file]{display:none;}
+
+  .loading-overlay{
+    position:fixed; inset:0; background:rgba(20,20,18,.28);
+    display:flex; align-items:center; justify-content:center; z-index:100;
+  }
+  .spinner{
+    width:36px; height:36px; border-radius:50%;
+    border:3px solid rgba(255,255,255,.35); border-top-color:#fff;
+    animation:spin .7s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -240,6 +251,9 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<div class="loading-overlay" id="loadingOverlay" style="display:none;">
+  <div class="spinner"></div>
+</div>
 
 <script>
 (function(){
@@ -333,6 +347,22 @@
     t.classList.add('show');
     clearTimeout(toast._t);
     toast._t = setTimeout(()=> t.classList.remove('show'), 1800);
+  }
+
+  // 저장/삭제/이미지 업로드처럼 서버 응답을 기다리는 동안 전체 화면 스피너를 띄운다.
+  // 중첩 호출을 대비해 카운터로 관리 (마지막 하나가 끝나야 완전히 숨김).
+  let loadingCount = 0;
+  function showLoading(){
+    loadingCount++;
+    const el = $('#loadingOverlay');
+    if(el) el.style.display = 'flex';
+  }
+  function hideLoading(){
+    loadingCount = Math.max(0, loadingCount - 1);
+    if(loadingCount === 0){
+      const el = $('#loadingOverlay');
+      if(el) el.style.display = 'none';
+    }
   }
 
   function escapeHtml(str){
@@ -460,6 +490,7 @@
       toast('⚠️ 구글 시트 연동 URL이 설정되지 않아 데모 데이터로 표시 중입니다');
       return;
     }
+    showLoading();
     try{
       const rows = await apiList();
       templates = rows.map(row=>{
@@ -473,6 +504,8 @@
       console.error('template list load failed', e);
       templates = seedData().map(t => migrateTemplate(t));
       toast('구글 시트를 불러오지 못해 임시 데이터로 표시합니다');
+    }finally{
+      hideLoading();
     }
     buildStatusFilterOptions();
     renderAll();
@@ -494,6 +527,7 @@
       if(!silent) toast('구글 시트 연동 URL이 설정되지 않아 저장되지 않습니다');
       return;
     }
+    showLoading();
     try{
       const result = await apiSaveTemplate(t);
       if(result && result.id) t.id = result.id;
@@ -501,13 +535,17 @@
     }catch(e){
       console.error('template save failed', e);
       if(!silent) toast('저장 중 오류가 발생했습니다');
+    }finally{
+      hideLoading();
     }
   }
 
   async function deleteTemplateRemote(id){
     if(!isRemoteConfigured()) return;
+    showLoading();
     try{ await apiDeleteTemplate(id); }
     catch(e){ console.error('template delete failed', e); toast('삭제 중 오류가 발생했습니다'); }
+    finally{ hideLoading(); }
   }
 
   function getSelected(){ return templates.find(t => t.id === selectedId) || null; }
@@ -783,7 +821,7 @@
             e.target.value = '';
             return;
           }
-          toast('이미지 업로드 중...');
+          showLoading();
           try{
             const result = await apiUploadImage(t.id, base64, file.type);
             // Apps Script는 실패해도 HTTP 200 + {error:...} 형태로 응답하므로
@@ -806,6 +844,8 @@
           }catch(err){
             console.error('image upload failed', err);
             toast('이미지 업로드 중 오류가 발생했습니다');
+          }finally{
+            hideLoading();
           }
         };
         reader.onerror = () => toast('이미지를 읽는 중 오류가 발생했습니다');
@@ -818,7 +858,10 @@
         t.image = null;
         t.hasImage = false;
         if(isRemoteConfigured()){
-          try{ await apiDeleteImage(t.id); }catch(e){ console.error('image delete failed', e); }
+          showLoading();
+          try{ await apiDeleteImage(t.id); }
+          catch(e){ console.error('image delete failed', e); }
+          finally{ hideLoading(); }
         }
         renderEditor();
         renderList();
@@ -849,7 +892,11 @@
 
     $('#deleteBtn', panel).addEventListener('click', async ()=>{
       if(!confirm(`'${t.name || '이 템플릿'}'을(를) 삭제할까요?`)) return;
-      if(t.hasImage) await (isRemoteConfigured() ? apiDeleteImage(t.id).catch(e=>console.error(e)) : Promise.resolve());
+      if(t.hasImage){
+        showLoading();
+        await (isRemoteConfigured() ? apiDeleteImage(t.id).catch(e=>console.error(e)) : Promise.resolve());
+        hideLoading();
+      }
       await deleteTemplateRemote(t.id);
       templates = templates.filter(x=>x.id !== t.id);
       selectTemplate(null);
