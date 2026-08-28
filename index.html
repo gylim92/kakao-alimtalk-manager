@@ -188,6 +188,9 @@
   .info-block ul{margin:0 0 12px; padding-left:16px; font-size:12.5px; line-height:1.6; color:var(--ink);}
   .info-block p{margin:0 0 12px; font-size:12.5px; line-height:1.6; color:var(--ink);}
   .info-block .muted{color:var(--ink-soft); font-style:normal;}
+  .var-input-row{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
+  .var-input-row label{flex:0 0 auto; font-size:12.5px; font-weight:700; color:var(--ink-soft); white-space:nowrap;}
+  .var-input-row input{flex:1;}
 
   .toast{
     position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
@@ -301,6 +304,8 @@
   let selectedId = null;
   let statusFilter = 'all';
   let searchTerm = '';
+  // 미리보기 전용 변수 예시 값 (저장되지 않음). key: 템플릿 id, value: {변수명: 예시값}
+  let previewVarValues = {};
 
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
@@ -946,6 +951,29 @@
     $('#countLabel').textContent = `총 ${templates.length}개 · 사용중 ${templates.filter(x=>x.status==='사용중').length}개`;
   }
 
+  // 본문에서 #{변수명} 형태를 모두 찾아 등장 순서대로, 중복 없이 반환한다.
+  function extractContentVariables(text){
+    if(!text) return [];
+    const found = [];
+    const seen = new Set();
+    const re = /#\{([^}]+)\}/g;
+    let m;
+    while((m = re.exec(text))){
+      const name = m[1].trim();
+      if(name && !seen.has(name)){ seen.add(name); found.push(name); }
+    }
+    return found;
+  }
+
+  // #{변수명}을 입력된 예시 값으로 치환한다. 값이 비어 있으면 원래 표기를 그대로 둔다.
+  function applyContentVars(text, vars){
+    if(!text) return text;
+    return text.replace(/#\{([^}]+)\}/g, (whole, name)=>{
+      const val = vars[name.trim()];
+      return (val && val.trim()) ? val : whole;
+    });
+  }
+
   function renderPreview(){
     const panel = $('#previewPanel');
     const t = getSelected();
@@ -964,6 +992,11 @@
     const minute = String(now.getMinutes()).padStart(2,'0');
     const timeLabel = `${ampm} ${hour12}:${minute}`;
 
+    const contentVars = extractContentVariables(t.content);
+    if(!previewVarValues[t.id]) previewVarValues[t.id] = {};
+    const varValues = previewVarValues[t.id];
+    const previewContent = applyContentVars(t.content || '', varValues);
+
     panel.innerHTML = `
       <h3>미리보기</h3>
       <div class="kakao-frame">
@@ -971,12 +1004,23 @@
           <div class="kakao-bubble">
             <span class="kakao-arrived">알림톡 도착</span>
             ${t.messageType === '이미지형' && t.image ? `<img src="${t.image}" alt="템플릿 이미지" class="kakao-image">` : ''}
-            <div class="kakao-body">${escapeHtml(t.content || '내용을 입력하면 여기에 표시됩니다.')}</div>
+            <div class="kakao-body">${escapeHtml(previewContent || '내용을 입력하면 여기에 표시됩니다.')}</div>
             ${buttonsHtml ? `<div class="kakao-buttons">${buttonsHtml}</div>` : ''}
           </div>
           <span class="kakao-msg-time">${timeLabel}</span>
         </div>
       </div>
+
+      ${contentVars.length ? `
+      <div class="info-block">
+        <h4>변수 예시 값 (미리보기 전용, 저장되지 않음)</h4>
+        ${contentVars.map(v=>`
+          <div class="var-input-row">
+            <label>#{${escapeHtml(v)}}</label>
+            <input type="text" data-var="${escapeAttr(v)}" value="${escapeAttr(varValues[v]||'')}" placeholder="예시 값 입력">
+          </div>
+        `).join('')}
+      </div>` : ''}
 
       <div class="info-block">
         <h4>상태</h4>
@@ -989,6 +1033,14 @@
         <p class="${t.note ? '' : 'muted'}">${escapeHtml(t.note || '작성된 비고가 없습니다.')}</p>
       </div>
     `;
+
+    $$('[data-var]', panel).forEach(el=>{
+      el.addEventListener('input', ()=>{
+        varValues[el.dataset.var] = el.value;
+        const body = $('.kakao-body', panel);
+        if(body) body.innerHTML = escapeHtml(applyContentVars(t.content || '', varValues) || '내용을 입력하면 여기에 표시됩니다.');
+      });
+    });
   }
 
   function renderLines(text){
