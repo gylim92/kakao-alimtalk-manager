@@ -138,7 +138,7 @@
   }
   input[type=text]:focus, textarea:focus, select:focus{border-color:var(--accent);}
   textarea{resize:vertical; line-height:1.55;}
-  select:disabled, input[type=text]:disabled{background:var(--surface-2); color:var(--ink-soft); cursor:not-allowed;}
+  select:disabled, input[type=text]:disabled, textarea:disabled{background:var(--surface-2); color:var(--ink-soft); cursor:not-allowed;}
   .field-hint{font-size:11px; color:var(--ink-soft); margin-top:5px; line-height:1.5;}
 
   .section-title{font-size:12.5px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); margin:22px 0 10px;}
@@ -218,7 +218,7 @@
   <div class="top-bar">
     <div class="brand">
       <span class="eyebrow">Kakao AlimTalk</span>
-      <h1>알림톡 템플릿 관리</h1>
+      <h1>알림톡 템플릿 관리 <span class="badge badge-neutral" id="viewOnlyBadge" style="display:none;">읽기 전용</span></h1>
     </div>
     <div class="top-actions">
       <button class="btn btn-sm" id="overviewBtn">전체 목록</button>
@@ -272,6 +272,11 @@
 
   const MESSAGE_TYPE_OPTIONS = ['기본형','이미지형'];
   const MAX_IMAGE_BYTES = 3 * 1024 * 1024; // 원본 파일 기준 3MB 제한 (base64 인코딩 후에도 저장 한도 내로 유지)
+
+  // URL에 ?view=1 이 붙으면 완전 읽기 전용 모드로 동작한다 (조회/검색/필터/미리보기/내보내기만 가능).
+  // 같은 index.html·같은 데이터소스를 그대로 쓰되, 등록/수정/삭제 관련 UI와 이벤트 바인딩을 전부 건너뛴다.
+  // 주의: 프런트엔드 화면단 제한일 뿐 백엔드 접근 자체를 막지는 않는다 (Apps Script API는 여전히 동일).
+  const VIEW_ONLY = new URLSearchParams(location.search).get('view') === '1';
 
   const FIELD_META = {
     mobileUrl:{label:'Mobile 링크', placeholder:'https://#{랜딩URL}'},
@@ -668,6 +673,29 @@
     return selectOptionsHtml(STATUS_OPTIONS, selected, ['선택']);
   }
 
+  // 뷰 전용 모드에서 편집기 패널을 읽기 전용으로 잠근다.
+  // 이벤트 리스너를 아예 붙이지 않으므로(renderEditor에서 이 함수 호출 후 return),
+  // 여기서는 입력 요소 비활성화와 편집용 버튼/링크 숨김만 처리하면 된다.
+  function applyViewOnlyLock(panel){
+    $$('input, textarea, select', panel).forEach(el => el.disabled = true);
+    const actions = $('.editor-actions', panel);
+    if(actions) actions.style.display = 'none';
+    const addBtn = $('#addButtonBtn', panel);
+    if(addBtn) addBtn.style.display = 'none';
+    $$('[data-remove]', panel).forEach(el => el.style.display = 'none');
+
+    const imgBlock = $('#imageUploadBlock', panel);
+    if(imgBlock){
+      const uploadLabel = imgBlock.querySelector('label[for="imageFileInput"]');
+      const removeBtn = imgBlock.querySelector('#removeImageBtn');
+      const hint = imgBlock.querySelector('.field-hint');
+      if(uploadLabel) uploadLabel.style.display = 'none';
+      if(removeBtn) removeBtn.style.display = 'none';
+      if(hint) hint.style.display = 'none';
+      if(!imgBlock.querySelector('.image-preview-row')) imgBlock.style.display = 'none';
+    }
+  }
+
   function renderEditor(){
     const panel = $('#editorPanel');
     const t = getSelected();
@@ -779,6 +807,11 @@
     $('#f_note', panel).value = t.note || '';
 
     renderButtonList(t);
+
+    if(VIEW_ONLY){
+      applyViewOnlyLock(panel);
+      return;
+    }
 
     const syncField = (id, key) => {
       $(id, panel).addEventListener('input', e=>{
@@ -924,7 +957,7 @@
         <div class="editor-empty">
           <div class="glyph">📋</div>
           <div style="font-weight:700; margin-bottom:6px;">등록된 템플릿이 없습니다</div>
-          <div style="font-size:13px;">오른쪽 위 '+ 새 템플릿' 버튼으로 첫 템플릿을 만들어 보세요.</div>
+          <div style="font-size:13px;">${VIEW_ONLY ? '아직 등록된 템플릿이 없습니다.' : "오른쪽 위 '+ 새 템플릿' 버튼으로 첫 템플릿을 만들어 보세요."}</div>
         </div>`;
       return;
     }
@@ -1124,17 +1157,24 @@
     renderAll();
   });
 
-  $('#newTplBtn').addEventListener('click', ()=>{
-    const t = {
-      id: uid(), code:'', name:'', status:'선택',
-      messageType:'기본형', hasImage:false, image:null, content:'', varExample:'',
-      buttons:[], note:'', sendTiming:'', sendTarget:'',
-      _unsaved: true // 저장 버튼을 눌러야만 시트에 반영됨
-    };
-    templates.unshift(t);
-    selectTemplate(t.id);
-    renderAll();
-  });
+  if(VIEW_ONLY){
+    const newTplBtn = $('#newTplBtn');
+    if(newTplBtn) newTplBtn.style.display = 'none';
+    const badge = $('#viewOnlyBadge');
+    if(badge) badge.style.display = 'inline-block';
+  }else{
+    $('#newTplBtn').addEventListener('click', ()=>{
+      const t = {
+        id: uid(), code:'', name:'', status:'선택',
+        messageType:'기본형', hasImage:false, image:null, content:'', varExample:'',
+        buttons:[], note:'', sendTiming:'', sendTarget:'',
+        _unsaved: true // 저장 버튼을 눌러야만 시트에 반영됨
+      };
+      templates.unshift(t);
+      selectTemplate(t.id);
+      renderAll();
+    });
+  }
 
   $('#searchInput').addEventListener('input', e=>{ searchTerm = e.target.value; renderList(); });
 

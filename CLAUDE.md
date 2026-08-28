@@ -15,6 +15,11 @@ Confluence 표 대신 관리하기 위한 웹 앱. 실제 카카오톡 화면과
 | 이미지 저장소 | 구글 드라이브 폴더 | 업로드된 템플릿 이미지 원본 |
 | 백엔드 API | 구글 Apps Script (스프레드시트에 연결됨) | 저장/조회/삭제/이미지 업로드 처리. 코드 백업: `apps-script-backup.gs` |
 
+## 뷰 전용 모드
+- URL에 `?view=1`을 붙이면(예: `.../index.html?view=1`) 완전 읽기 전용 모드로 동작함 — 조회/검색/필터/미리보기/내보내기만 가능하고, 새 템플릿 등록·수정·저장·삭제·이미지 업로드/삭제·버튼 추가/삭제는 UI 자체가 숨겨지거나 비활성화됨
+- 같은 `index.html`, 같은 데이터소스(같은 구글 시트)를 그대로 사용 — 별도 파일이나 별도 배포가 아니라 쿼리 파라미터로만 분기
+- **주의**: 이건 프런트엔드 화면단 제한일 뿐 실제 접근 제어가 아님. `?view=1` 없이 원래 URL로 들어가거나, 브라우저 개발자도구로 조작하거나, Apps Script API를 직접 호출하면 그대로 수정 가능함. 진짜 권한 분리가 필요해지면 별도로 이야기할 것
+
 ## 데이터 모델
 - 템플릿 필드: `id, code, name, status, messageType, content, varExample, buttons[], sendTiming, sendTarget, note, hasImage, imageUrl, updatedAt, createdAt`
 - `varExample`: 템플릿 내용(`content`)의 `#{변수}`에 실제 값을 채운 예시를 사용자가 직접 입력하는 필드(선택 입력, 자동 생성 아님). 미리보기 상단의 "변수 적용 전/후" 토글로 확인 — 기본값은 "적용 전"(`content` 그대로 표시)
