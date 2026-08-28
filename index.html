@@ -351,17 +351,28 @@
 
   // 저장/삭제/이미지 업로드처럼 서버 응답을 기다리는 동안 전체 화면 스피너를 띄운다.
   // 중첩 호출을 대비해 카운터로 관리 (마지막 하나가 끝나야 완전히 숨김).
+  // 응답이 너무 빨리 와서 깜빡였다 사라지는 걸 못 보는 일이 없도록 최소 노출 시간을 둔다.
+  const MIN_LOADING_MS = 400;
   let loadingCount = 0;
+  let loadingShownAt = 0;
   function showLoading(){
     loadingCount++;
-    const el = $('#loadingOverlay');
-    if(el) el.style.display = 'flex';
+    if(loadingCount === 1){
+      loadingShownAt = Date.now();
+      const el = $('#loadingOverlay');
+      if(el) el.style.display = 'flex';
+    }
   }
   function hideLoading(){
     loadingCount = Math.max(0, loadingCount - 1);
-    if(loadingCount === 0){
-      const el = $('#loadingOverlay');
-      if(el) el.style.display = 'none';
+    if(loadingCount > 0) return;
+    const el = $('#loadingOverlay');
+    if(!el) return;
+    const remaining = MIN_LOADING_MS - (Date.now() - loadingShownAt);
+    if(remaining > 0){
+      setTimeout(()=>{ if(loadingCount === 0) el.style.display = 'none'; }, remaining);
+    }else{
+      el.style.display = 'none';
     }
   }
 
