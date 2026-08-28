@@ -786,8 +786,16 @@
           toast('이미지 업로드 중...');
           try{
             const result = await apiUploadImage(t.id, base64, file.type);
+            // Apps Script는 실패해도 HTTP 200 + {error:...} 형태로 응답하므로
+            // fetch 자체는 성공한 것처럼 보인다. url이 없으면 실패로 간주한다.
+            if(!result || result.error || !result.url){
+              console.error('image upload response invalid', result);
+              toast('이미지 업로드에 실패했습니다. 잠시 후 다시 시도해주세요.');
+              e.target.value = '';
+              return;
+            }
             t.image = result.url;
-            t.hasImage = true;
+            t.hasImage = !!t.image;
             // 아직 한 번도 저장(등록)하지 않은 새 템플릿이면, 파일만 드라이브에 올려두고
             // 시트에는 '저장' 버튼을 눌러야 반영되도록 한다.
             if(!t._unsaved) await saveTemplateRemote(t, true);
