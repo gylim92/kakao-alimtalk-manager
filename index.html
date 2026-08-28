@@ -455,10 +455,16 @@
   // 비워두면(데모 모드) 브라우저를 새로고침할 때마다 초기 예시 데이터로 돌아갑니다.
   const API_BASE_URL = 'https://script.google.com/a/macros/meatbox.co.kr/s/AKfycby4KZG_n1Pv_xOjdjLFKKnjqb5Va3ajI0zKaZnkwvmwkq_nxH-HZfGZUMIj5g9zK6Y6TA/exec';
 
-  function isRemoteConfigured(){ return !!API_BASE_URL && !FORCE_DEMO; }
+  // ?view=1 상태에서만 ?api=<읽기전용 배포 URL> 로 백엔드 주소를 바꿔치기할 수 있다.
+  // view=1이 아닐 때 임의의 api= 값을 허용하면, 저장/삭제 요청이 공격자가 지정한 서버로
+  // 전송될 수 있어(실제 템플릿 내용 유출 위험) 편집 모드에서는 절대 허용하지 않는다.
+  const API_OVERRIDE = new URLSearchParams(location.search).get('api') || '';
+  const EFFECTIVE_API_URL = (VIEW_ONLY && API_OVERRIDE) ? API_OVERRIDE : API_BASE_URL;
+
+  function isRemoteConfigured(){ return !!EFFECTIVE_API_URL && !FORCE_DEMO; }
 
   async function apiList(){
-    const res = await fetch(`${API_BASE_URL}?action=list`);
+    const res = await fetch(`${EFFECTIVE_API_URL}?action=list`);
     if(!res.ok) throw new Error('list request failed');
     return res.json();
   }
@@ -468,7 +474,7 @@
     payload.imageUrl = t.image || '';
     delete payload.image;
     delete payload._unsaved;
-    const res = await fetch(API_BASE_URL, {
+    const res = await fetch(EFFECTIVE_API_URL, {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'}, // Apps Script CORS 프리플라이트 회피용
       body: JSON.stringify({action:'save', template: payload})
@@ -477,7 +483,7 @@
   }
 
   async function apiDeleteTemplate(id){
-    const res = await fetch(API_BASE_URL, {
+    const res = await fetch(EFFECTIVE_API_URL, {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
       body: JSON.stringify({action:'delete', id})
@@ -486,7 +492,7 @@
   }
 
   async function apiUploadImage(id, base64, mimeType){
-    const res = await fetch(API_BASE_URL, {
+    const res = await fetch(EFFECTIVE_API_URL, {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
       body: JSON.stringify({action:'uploadImage', id, base64, mimeType})
@@ -495,7 +501,7 @@
   }
 
   async function apiDeleteImage(id){
-    const res = await fetch(API_BASE_URL, {
+    const res = await fetch(EFFECTIVE_API_URL, {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
       body: JSON.stringify({action:'deleteImage', id})

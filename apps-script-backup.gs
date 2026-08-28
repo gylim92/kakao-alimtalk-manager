@@ -9,6 +9,18 @@ const SHEET_NAME = 'templates';
 const IMAGE_FOLDER_ID = '여기에_구글드라이브_이미지_폴더_ID_입력';
 const HEADERS = ['id','code','name','status','messageType','content','buttons','sendTiming','sendTarget','note','hasImage','imageUrl','updatedAt','createdAt','varExample'];
 
+// 저장/삭제/이미지 업로드 등 쓰기 작업은 이 도메인 계정만 허용한다.
+// 배포 접근 권한을 "Google 계정이 있는 사용자 누구나"로 열어 읽기 전용 외부 공유 URL을 만들더라도,
+// 쓰기 작업은 여기서 한 번 더 서버 단에서 막는다 (배포 설정 실수에 대한 방어 계층).
+const WRITE_ALLOWED_DOMAIN = '@meatbox.co.kr';
+
+function assertWriteAllowed(){
+  const email = Session.getActiveUser().getEmail();
+  if(!email || !email.toLowerCase().endsWith(WRITE_ALLOWED_DOMAIN)){
+    throw new Error('권한이 없습니다 (읽기 전용 접근입니다).');
+  }
+}
+
 function getSheet(){
   return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
 }
@@ -29,10 +41,10 @@ function doGet(e){
 function doPost(e){
   const body = JSON.parse(e.postData.contents);
   try{
-    if(body.action === 'save') return jsonResponse(saveTemplate(body.template));
-    if(body.action === 'delete') return jsonResponse(deleteTemplate(body.id));
-    if(body.action === 'uploadImage') return jsonResponse(uploadImage(body.id, body.base64, body.mimeType));
-    if(body.action === 'deleteImage') return jsonResponse(deleteImageFile(body.id));
+    if(body.action === 'save'){ assertWriteAllowed(); return jsonResponse(saveTemplate(body.template)); }
+    if(body.action === 'delete'){ assertWriteAllowed(); return jsonResponse(deleteTemplate(body.id)); }
+    if(body.action === 'uploadImage'){ assertWriteAllowed(); return jsonResponse(uploadImage(body.id, body.base64, body.mimeType)); }
+    if(body.action === 'deleteImage'){ assertWriteAllowed(); return jsonResponse(deleteImageFile(body.id)); }
     return jsonResponse({error:'unknown action'});
   }catch(err){
     return jsonResponse({error:String(err)});
