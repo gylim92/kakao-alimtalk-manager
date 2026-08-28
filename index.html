@@ -268,18 +268,19 @@
     phoneNumber:{label:'전화번호', placeholder:'02-1234-5678'},
     mapAddress:{label:'주소', placeholder:'서울특별시 ...'},
     mapUrl:{label:'지도 링크 (선택)', placeholder:'https://map.kakao.com/...'},
-    realUrl:{label:'실랜딩 URL (선택)', placeholder:'https://실제 연결되는 페이지 주소'}
+    realUrlMobile:{label:'실랜딩 URL - Mobile (선택)', placeholder:'https://실제 연결되는 Mobile 페이지 주소'},
+    realUrlPc:{label:'실랜딩 URL - PC (선택)', placeholder:'https://실제 연결되는 PC 페이지 주소'}
   };
 
   // 버튼 데이터에 들어갈 수 있는 모든 필드 키 (blankButton/migrateTemplate에서 공용으로 사용)
-  const ALL_BUTTON_FIELDS = ['mobileUrl','pcUrl','androidScheme','iosScheme','formUrl','phoneNumber','mapAddress','mapUrl','realUrl'];
+  const ALL_BUTTON_FIELDS = ['mobileUrl','pcUrl','androidScheme','iosScheme','formUrl','phoneNumber','mapAddress','mapUrl','realUrlMobile','realUrlPc'];
 
   // 카카오 알림톡 공식 버튼 유형. fields: 해당 타입에서 노출할 입력 필드.
   const BUTTON_TYPE_CONFIG = {
-    '웹링크':{code:'WL', fields:['mobileUrl','pcUrl','realUrl'],
-      help:'Mobile 링크는 필수이며, PC 링크는 선택 입력입니다. 클릭 시 인앱 브라우저로 열립니다. 실랜딩 URL은 심사용 #{랜딩URL} 변수 대신 실제로 연결될 페이지를 참고용으로 기록하는 필드입니다.'},
-    '앱링크':{code:'AL', fields:['androidScheme','iosScheme','mobileUrl','pcUrl','realUrl'],
-      help:'AOS 스킴 · iOS 스킴 · Mobile 링크 중 2개 이상을 입력해야 합니다. PC 링크는 선택입니다. 실랜딩 URL은 실제로 연결될 페이지를 참고용으로 기록하는 필드입니다.'},
+    '웹링크':{code:'WL', fields:['mobileUrl','pcUrl','realUrlMobile','realUrlPc'],
+      help:'Mobile 링크는 필수이며, PC 링크는 선택 입력입니다. 클릭 시 인앱 브라우저로 열립니다.'},
+    '앱링크':{code:'AL', fields:['androidScheme','iosScheme','mobileUrl','pcUrl','realUrlMobile','realUrlPc'],
+      help:'AOS 스킴 · iOS 스킴 · Mobile 링크 중 2개 이상을 입력해야 합니다. PC 링크는 선택입니다.'},
     '배송조회':{code:'DS', fields:[],
       help:'본문에 택배사명과 송장번호가 포함되면 배송조회 버튼이 자동으로 노출됩니다. 별도 링크 입력은 필요하지 않습니다.'},
     '봇키워드':{code:'BK', fields:[],
@@ -914,7 +915,7 @@
         : `<div><label>버튼명<span class="req-dot"></span></label><input type="text" data-field="label" data-idx="${i}" value="${escapeAttr(b.label)}" placeholder="작성하기"></div>`;
       const extraFieldsHtml = cfg.fields.map(f=>{
         const meta = FIELD_META[f];
-        const isFull = f === 'mobileUrl' || f === 'pcUrl' || f === 'realUrl';
+        const isFull = f === 'mobileUrl' || f === 'pcUrl' || f === 'realUrlMobile' || f === 'realUrlPc';
         const isOptional = meta.label.includes('(선택)');
         return `<div class="${isFull ? 'full':''}">
           <label>${meta.label}${isOptional ? '' : '<span class="req-dot"></span>'}</label>
