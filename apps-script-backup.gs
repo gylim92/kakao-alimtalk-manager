@@ -99,7 +99,9 @@ function uploadImage(id, base64, mimeType){
   const blob = Utilities.newBlob(bytes, mimeType || 'image/png', id + '.png');
   const file = folder.createFile(blob);
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  const url = 'https://drive.google.com/uc?export=view&id=' + file.getId();
+  // uc?export=view 형식은 브라우저에서 <img> 태그로 직접 열면 엑박(깨진 이미지)이 뜨는 경우가 많아
+  // 썸네일 엔드포인트로 변경 (핫링크 임베드에 더 안정적으로 동작함)
+  const url = 'https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w1000';
   const sheet = getSheet();
   const rowIndex = findRowIndexById(sheet, id);
   if(rowIndex !== -1){
