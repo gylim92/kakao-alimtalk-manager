@@ -275,8 +275,13 @@
 
   // URL에 ?view=1 이 붙으면 완전 읽기 전용 모드로 동작한다 (조회/검색/필터/미리보기/내보내기만 가능).
   // 같은 index.html·같은 데이터소스를 그대로 쓰되, 등록/수정/삭제 관련 UI와 이벤트 바인딩을 전부 건너뛴다.
-  // 주의: 프런트엔드 화면단 제한일 뿐 백엔드 접근 자체를 막지는 않는다 (Apps Script API는 여전히 동일).
+  // 주의: 프런트엔드 화면단 제한일 뿐, 실제 구글 시트에 연결해서 쓸 때는 백엔드 접근 자체를 막지는 않는다.
   const VIEW_ONLY = new URLSearchParams(location.search).get('view') === '1';
+
+  // URL에 ?demo=1 이 붙으면 실제 구글 시트/Apps Script에 전혀 연결하지 않고 샘플 데이터만 사용한다.
+  // 외주 개발자 등 외부 인력에게 화면만 보여줄 때 사용 — isRemoteConfigured()가 항상 false를 반환하게 되어
+  // 저장/삭제/이미지 업로드 등 실제 백엔드를 건드리는 모든 경로가 원천 차단된다. ?view=1과 함께 쓸 것.
+  const FORCE_DEMO = new URLSearchParams(location.search).get('demo') === '1';
 
   const FIELD_META = {
     mobileUrl:{label:'Mobile 링크', placeholder:'https://#{랜딩URL}'},
@@ -450,7 +455,7 @@
   // 비워두면(데모 모드) 브라우저를 새로고침할 때마다 초기 예시 데이터로 돌아갑니다.
   const API_BASE_URL = 'https://script.google.com/a/macros/meatbox.co.kr/s/AKfycby4KZG_n1Pv_xOjdjLFKKnjqb5Va3ajI0zKaZnkwvmwkq_nxH-HZfGZUMIj5g9zK6Y6TA/exec';
 
-  function isRemoteConfigured(){ return !!API_BASE_URL; }
+  function isRemoteConfigured(){ return !!API_BASE_URL && !FORCE_DEMO; }
 
   async function apiList(){
     const res = await fetch(`${API_BASE_URL}?action=list`);
@@ -503,7 +508,7 @@
       templates = seedData().map(t => migrateTemplate(t));
       buildStatusFilterOptions();
       renderAll();
-      toast('⚠️ 구글 시트 연동 URL이 설정되지 않아 데모 데이터로 표시 중입니다');
+      toast(FORCE_DEMO ? '샘플 데이터로 표시 중입니다 (실제 데이터 아님)' : '⚠️ 구글 시트 연동 URL이 설정되지 않아 데모 데이터로 표시 중입니다');
       return;
     }
     showLoading();
