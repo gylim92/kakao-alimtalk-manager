@@ -9,16 +9,19 @@ const SHEET_NAME = 'templates';
 const IMAGE_FOLDER_ID = '여기에_구글드라이브_이미지_폴더_ID_입력';
 const HEADERS = ['id','code','name','status','messageType','content','buttons','sendTiming','sendTarget','note','hasImage','imageUrl','updatedAt','createdAt','varExample'];
 
-// 저장/삭제/이미지 업로드 등 쓰기 작업은 이 도메인 계정만 허용한다.
-// 배포 접근 권한을 "Google 계정이 있는 사용자 누구나"로 열어 읽기 전용 외부 공유 URL을 만들더라도,
-// 쓰기 작업은 여기서 한 번 더 서버 단에서 막는다 (배포 설정 실수에 대한 방어 계층).
-const WRITE_ALLOWED_DOMAIN = '@meatbox.co.kr';
+// 저장/삭제/이미지 업로드는 메인(쓰기 허용) 배포에서만 허용하고,
+// 그 외 배포(예: 외부 공유용 읽기 전용 배포)에서 호출되면 차단한다.
+// Session.getActiveUser().getEmail()은 웹앱 실행 계정 설정에 따라 정상 사용자에게도
+// 빈 값을 반환하는 경우가 있어(실제로 겪은 문제 - 메인 배포에서 정상 저장이 막힘) 신뢰할 수 없다.
+// 대신 ScriptApp.getService().getUrl()로 "지금 요청이 실제로 어느 배포 URL로 들어왔는지"를 직접 비교한다.
+// 아래 값은 메인(쓰기 허용) 배포의 웹 앱 URL로, index.html의 API_BASE_URL과 동일해야 한다.
+const MAIN_DEPLOYMENT_URL = 'https://script.google.com/a/macros/meatbox.co.kr/s/AKfycby4KZG_n1Pv_xOjdjLFKKnjqb5Va3ajI0zKaZnkwvmwkq_nxH-HZfGZUMIj5g9zK6Y6TA/exec';
 
 function assertWriteAllowed(){
-  const email = Session.getActiveUser().getEmail();
-  if(!email || !email.toLowerCase().endsWith(WRITE_ALLOWED_DOMAIN)){
-    throw new Error('권한이 없습니다 (읽기 전용 접근입니다).');
-  }
+  let currentUrl = '';
+  try{ currentUrl = ScriptApp.getService().getUrl(); }catch(e){ currentUrl = ''; }
+  if(currentUrl === MAIN_DEPLOYMENT_URL) return; // 메인 배포에서 온 요청은 항상 허용
+  throw new Error('권한이 없습니다 (읽기 전용 접근입니다).');
 }
 
 function getSheet(){
