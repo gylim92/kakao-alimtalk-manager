@@ -424,6 +424,10 @@
     delete t.emphasisType;
     if(typeof t.hasImage !== 'boolean') t.hasImage = !!t.hasImage;
     if(!t.varExample) t.varExample = '';
+    // 예전에 UTC(...Z) ISO 형식으로 저장된 등록일/수정일을 한국 시간 문자열로 정리한다.
+    // 이미 정리된 값이면 toKstDisplay가 그대로 반환하므로 다시 저장해도 안전하다.
+    t.createdAt = toKstDisplay(t.createdAt);
+    t.updatedAt = toKstDisplay(t.updatedAt);
     return t;
   }
 
@@ -1199,7 +1203,8 @@
     return `${b.type}(${label})${val ? ': ' + val : ''}`;
   }
 
-  // 저장된 값이 UTC(...Z)든 이미 KST 문자열이든 상관없이, 내보낼 때는 항상 한국 시간으로 통일한다.
+  // 저장된 값이 UTC(...Z)든 이미 KST 문자열이든 상관없이 항상 한국 시간 문자열로 통일한다.
+  // migrateTemplate(로드/정리 시)과 엑셀 내보내기 양쪽에서 공용으로 사용.
   function toKstDisplay(v){
     if(!v) return '';
     const s = String(v);
