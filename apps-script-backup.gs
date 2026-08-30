@@ -9,18 +9,15 @@ const SHEET_NAME = 'templates';
 const IMAGE_FOLDER_ID = '여기에_구글드라이브_이미지_폴더_ID_입력';
 const HEADERS = ['id','code','name','status','messageType','content','buttons','sendTiming','sendTarget','note','hasImage','imageUrl','updatedAt','createdAt','varExample'];
 
-// 저장/삭제/이미지 업로드는 메인(쓰기 허용) 배포에서만 허용하고,
-// 그 외 배포(예: 외부 공유용 읽기 전용 배포)에서 호출되면 차단한다.
-// Session.getActiveUser().getEmail()은 웹앱 실행 계정 설정에 따라 정상 사용자에게도
-// 빈 값을 반환하는 경우가 있어(실제로 겪은 문제 - 메인 배포에서 정상 저장이 막힘) 신뢰할 수 없다.
-// 대신 ScriptApp.getService().getUrl()로 "지금 요청이 실제로 어느 배포 URL로 들어왔는지"를 직접 비교한다.
-// 아래 값은 메인(쓰기 허용) 배포의 웹 앱 URL로, index.html의 API_BASE_URL과 동일해야 한다.
-const MAIN_DEPLOYMENT_URL = 'https://script.google.com/a/macros/meatbox.co.kr/s/AKfycby4KZG_n1Pv_xOjdjLFKKnjqb5Va3ajI0zKaZnkwvmwkq_nxH-HZfGZUMIj5g9zK6Y6TA/exec';
+// 메인 배포 접근 권한을 "모든 사용자"로 열면서(도메인 제한 배포가 fetch()와 CORS 충돌을
+// 일으켜서 부득이하게 변경) 구글 계정 기반 검사를 쓸 수 없게 되었다. 대신 클라이언트가
+// 보내는 비밀 토큰으로 저장/삭제/이미지 업로드를 막는다. index.html의 WRITE_SECRET과 반드시 일치해야 한다.
+// 주의: 이 저장소는 Public이라 index.html에 있는 토큰도 사실상 노출된다 — 완벽한 보안이 아니라
+// "아무나 URL만 알아도 쓰기 가능"한 상태를 막는 최소한의 장치임.
+const WRITE_SECRET = '0fec4f7d3bcc7d2ad8fed19832207ce72fa4f543756e7742';
 
-function assertWriteAllowed(){
-  let currentUrl = '';
-  try{ currentUrl = ScriptApp.getService().getUrl(); }catch(e){ currentUrl = ''; }
-  if(currentUrl === MAIN_DEPLOYMENT_URL) return; // 메인 배포에서 온 요청은 항상 허용
+function assertWriteAllowed(body){
+  if(body && body.secret === WRITE_SECRET) return;
   throw new Error('권한이 없습니다 (읽기 전용 접근입니다).');
 }
 
@@ -44,10 +41,10 @@ function doGet(e){
 function doPost(e){
   const body = JSON.parse(e.postData.contents);
   try{
-    if(body.action === 'save'){ assertWriteAllowed(); return jsonResponse(saveTemplate(body.template)); }
-    if(body.action === 'delete'){ assertWriteAllowed(); return jsonResponse(deleteTemplate(body.id)); }
-    if(body.action === 'uploadImage'){ assertWriteAllowed(); return jsonResponse(uploadImage(body.id, body.base64, body.mimeType)); }
-    if(body.action === 'deleteImage'){ assertWriteAllowed(); return jsonResponse(deleteImageFile(body.id)); }
+    if(body.action === 'save'){ assertWriteAllowed(body); return jsonResponse(saveTemplate(body.template)); }
+    if(body.action === 'delete'){ assertWriteAllowed(body); return jsonResponse(deleteTemplate(body.id)); }
+    if(body.action === 'uploadImage'){ assertWriteAllowed(body); return jsonResponse(uploadImage(body.id, body.base64, body.mimeType)); }
+    if(body.action === 'deleteImage'){ assertWriteAllowed(body); return jsonResponse(deleteImageFile(body.id)); }
     return jsonResponse({error:'unknown action'});
   }catch(err){
     return jsonResponse({error:String(err)});

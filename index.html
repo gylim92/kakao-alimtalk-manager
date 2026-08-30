@@ -459,6 +459,11 @@
   // 비워두면(데모 모드) 브라우저를 새로고침할 때마다 초기 예시 데이터로 돌아갑니다.
   const API_BASE_URL = 'https://script.google.com/a/macros/meatbox.co.kr/s/AKfycby4KZG_n1Pv_xOjdjLFKKnjqb5Va3ajI0zKaZnkwvmwkq_nxH-HZfGZUMIj5g9zK6Y6TA/exec';
 
+  // 메인 배포가 "모든 사용자"로 열려 있어서(도메인 제한 배포가 fetch()와 CORS 충돌을 일으켜
+  // 부득이하게 변경) 저장/삭제/이미지 업로드 요청에 이 토큰을 실어보내야 서버가 받아준다.
+  // apps-script-backup.gs의 WRITE_SECRET과 반드시 동일한 값이어야 한다.
+  const WRITE_SECRET = '0fec4f7d3bcc7d2ad8fed19832207ce72fa4f543756e7742';
+
   // ?view=1 상태에서만 ?sid=<읽기전용 배포의 스크립트ID> 로 백엔드 주소를 바꿔치기할 수 있다.
   // 전체 URL 대신 ID만 받아서 공유 링크를 짧게 유지한다 (앞뒤 고정 부분은 아래에서 조립).
   // view=1이 아닐 때 임의의 sid= 값을 허용하면, 저장/삭제 요청이 공격자가 지정한 서버로
@@ -483,7 +488,7 @@
     const res = await fetch(EFFECTIVE_API_URL, {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'}, // Apps Script CORS 프리플라이트 회피용
-      body: JSON.stringify({action:'save', template: payload})
+      body: JSON.stringify({action:'save', template: payload, secret: WRITE_SECRET})
     });
     return res.json();
   }
@@ -492,7 +497,7 @@
     const res = await fetch(EFFECTIVE_API_URL, {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({action:'delete', id})
+      body: JSON.stringify({action:'delete', id, secret: WRITE_SECRET})
     });
     return res.json();
   }
@@ -501,7 +506,7 @@
     const res = await fetch(EFFECTIVE_API_URL, {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({action:'uploadImage', id, base64, mimeType})
+      body: JSON.stringify({action:'uploadImage', id, base64, mimeType, secret: WRITE_SECRET})
     });
     return res.json();
   }
@@ -510,7 +515,7 @@
     const res = await fetch(EFFECTIVE_API_URL, {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({action:'deleteImage', id})
+      body: JSON.stringify({action:'deleteImage', id, secret: WRITE_SECRET})
     });
     return res.json();
   }
