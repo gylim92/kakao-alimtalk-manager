@@ -1237,7 +1237,9 @@
       toKstDisplay(t.updatedAt)
     ]);
 
-    const cellHtml = (v) => escapeHtml(String(v)).replace(/\n/g, '<br>');
+    // mso-data-placement:same-cell 를 안 붙이면 엑셀이 <br>을 셀 안 줄바꿈이 아니라
+    // 새로운 행으로 잘못 쪼개서 해석하는 경우가 있어 명시적으로 지정한다.
+    const cellHtml = (v) => escapeHtml(String(v)).replace(/\n/g, '<br style="mso-data-placement:same-cell;">');
     const theadHtml = `<tr>${cols.map(c=>`<th>${escapeHtml(c)}</th>`).join('')}</tr>`;
     const tbodyHtml = rows.map(r=>`<tr>${r.map(v=>`<td>${cellHtml(v)}</td>`).join('')}</tr>`).join('');
     const tableHtml = `
