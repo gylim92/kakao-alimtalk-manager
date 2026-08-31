@@ -22,16 +22,12 @@
     --danger-soft:#f7e8e3;
     --live:#2f6b46;
     --live-soft:#e4f1e8;
-    --pending:#8a7228;
-    --pending-soft:#f4eed6;
+    --pending:#8a6d00;
+    --pending-soft:#fbf0d6;
     --review:#2f5fa3;
     --review-soft:#e3ecf7;
-    --approved:#1f7a67;
-    --approved-soft:#e1f2ee;
     --dormant:#8a8578;
     --dormant-soft:#ece9e3;
-    --stopped:#a15b1f;
-    --stopped-soft:#faeadd;
     --neutral:#6b6a63;
     --neutral-soft:#eceae4;
     --radius:10px;
@@ -98,11 +94,8 @@
   .badge-neutral{background:var(--neutral-soft); color:var(--neutral);}
   .badge-pending{background:var(--pending-soft); color:var(--pending);}
   .badge-review{background:var(--review-soft); color:var(--review);}
-  .badge-approved{background:var(--approved-soft); color:var(--approved);}
   .badge-live{background:var(--live-soft); color:var(--live);}
   .badge-dormant{background:var(--dormant-soft); color:var(--dormant);}
-  .badge-stopped{background:var(--stopped-soft); color:var(--stopped);}
-  .badge-blocked{background:var(--danger-soft); color:var(--danger);}
   .tpl-meta{font-size:11px; color:var(--ink-soft); margin-top:4px;}
   .empty-list{padding:30px 14px; text-align:center; color:var(--ink-soft); font-size:12.5px; line-height:1.6;}
   .sidebar-foot{padding:10px 14px; border-top:1px solid var(--line); display:flex; gap:6px;}
@@ -262,13 +255,13 @@
   const STATUS_OPTIONS = ['선택','검수 전','검수 중','검수완료','사용중','휴면','중지','차단'];
   const STATUS_META = {
     '선택':{cls:'badge-neutral'},
-    '검수 전':{cls:'badge-pending'},
-    '검수 중':{cls:'badge-review'},
-    '검수완료':{cls:'badge-approved'},
-    '사용중':{cls:'badge-live'},
+    '검수 전':{cls:'badge-dormant'},
+    '검수 중':{cls:'badge-pending'},
+    '검수완료':{cls:'badge-live'},
+    '사용중':{cls:'badge-review'},
     '휴면':{cls:'badge-dormant'},
-    '중지':{cls:'badge-stopped'},
-    '차단':{cls:'badge-blocked'}
+    '중지':{cls:'badge-dormant'},
+    '차단':{cls:'badge-dormant'}
   };
 
   const MESSAGE_TYPE_OPTIONS = ['기본형','이미지형'];
@@ -530,7 +523,7 @@
   function buildStatusFilterOptions(){
     const sel = $('#statusFilterSelect');
     sel.innerHTML = `<option value="all">전체 상태</option>` +
-      STATUS_OPTIONS.map(s=>`<option value="${s}">${s}</option>`).join('');
+      STATUS_OPTIONS.filter(s=>s!=='선택').map(s=>`<option value="${s}">${s}</option>`).join('');
     sel.value = statusFilter;
     sel.addEventListener('change', ()=>{
       statusFilter = sel.value;
