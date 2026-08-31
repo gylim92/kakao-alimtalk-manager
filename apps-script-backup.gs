@@ -103,8 +103,13 @@ function saveTemplate(t){
     return t[h] !== undefined ? t[h] : '';
   });
   const rowIndex = findRowIndexById(sheet, t.id);
-  if(rowIndex === -1) sheet.appendRow(rowValues);
-  else sheet.getRange(rowIndex,1,1,HEADERS.length).setValues([rowValues]);
+  if(rowIndex === -1){
+    // 새 템플릿은 맨 아래가 아니라 헤더 바로 다음(2행)에 넣어서, 시트에서도 최근 등록순으로 보이게 한다.
+    sheet.insertRowBefore(2);
+    sheet.getRange(2,1,1,HEADERS.length).setValues([rowValues]);
+  }else{
+    sheet.getRange(rowIndex,1,1,HEADERS.length).setValues([rowValues]);
+  }
   return {ok:true, id:t.id};
 }
 
