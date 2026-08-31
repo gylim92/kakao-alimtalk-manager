@@ -15,26 +15,28 @@ Confluence 표 대신 관리하기 위한 웹 앱. 실제 카카오톡 화면과
 | 이미지 저장소 | 구글 드라이브 폴더 | 업로드된 템플릿 이미지 원본 |
 | 백엔드 API | 구글 Apps Script (스프레드시트에 연결됨) | 저장/조회/삭제/이미지 업로드 처리. 코드 백업: `apps-script-backup.gs` |
 
-## 진행 중: Apps Script가 직접 서빙하는 내부용 신규 버전 (작업 중, 아직 전환 안 됨)
+## Apps Script가 직접 서빙하는 내부용 신규 버전 (2026-08-31 배포·테스트 완료)
 아래 "백엔드 접근 권한" 항목에서 설명하는 CORS 문제와 `WRITE_SECRET` 노출 문제를 근본적으로 해결하기 위해,
 GitHub Pages + `fetch()` 구조 대신 **Apps Script가 화면(HTML)까지 직접 서빙하고 `google.script.run`으로
-서버 함수를 호출하는 구조**를 별도로 준비 중.
+서버 함수를 호출하는 구조**를 추가함. 실제 배포해서 조회/저장/삭제/이미지 업로드 전부 정상 동작 확인됨.
+
 - `apps-script-index.html`: 새 구조용 화면 코드. `index.html`을 기반으로 하되 `fetch()`/`API_BASE_URL`/
-  `WRITE_SECRET` 관련 코드를 전부 제거하고 `google.script.run` 호출(`runServer()` 헬퍼)로 교체함
+  `WRITE_SECRET` 관련 코드를 전부 제거하고 `google.script.run` 호출(`runServer()` 헬퍼)로 교체함. 같은
+  Apps Script 프로젝트에 `Index.html`이라는 이름의 HTML 파일로 추가되어 있음
 - `apps-script-backup.gs`의 `doGet`이 `?action=list`면 기존처럼 JSON을 반환하고(외부 공유용 읽기전용
   배포가 계속 이 경로를 씀), action이 없으면(그냥 배포 URL 접속) `HtmlService.createHtmlOutputFromFile('Index')`로
-  화면을 직접 반환하도록 분기 추가됨
-- **적용 방법**: 같은 Apps Script 프로젝트에 `apps-script-index.html` 내용을 `Index.html`이라는 이름의
-  HTML 파일로 추가하고, **새 배포**(웹 앱, 액세스 권한 "meatbox.co.kr 조직 계정 제한", 실행 계정 "나")를
-  만들어서 그 배포 URL로 접속하면 내부 직원 전용의 진짜 보안이 적용된 도구가 됨. 기존 GitHub Pages
-  `index.html`(메인 편집용)과 기존 메인 Apps Script 배포는 그대로 두고 건드리지 않음 — 전환 준비가
-  끝나기 전까지 기존 도구는 평소처럼 계속 사용 가능
-- 외부 공유용 읽기전용(`?view=1&sid=...`) 기능은 이 새 구조에서 그대로 못 씀 (`google.script.run`은
-  다른 배포로 바꿔치기가 안 됨) — 기존 GitHub Pages `index.html`의 뷰 전용 모드를 그대로 유지해서
-  외부 공유는 계속 그쪽으로 처리하면 됨
-- 전환이 끝나면(새 배포로 내부 직원들이 실제로 쓰기 시작하면), 기존 GitHub Pages 메인 편집 경로는
-  더 이상 안 쓰게 되므로 그때 가서 기존 메인 Apps Script 배포를 다시 조직 제한으로 되돌리거나
-  정리하는 걸 고려할 것
+  화면을 직접 반환함
+- `listTemplates()`가 시트 셀이 실제 Date 타입으로 자동 인식된 경우 문자열로 변환해서 반환하도록 되어
+  있음 — 이거 없으면 `google.script.run`이 Date 객체를 직렬화 못 해서 응답 전체가 `null`이 됨 (실제로 겪음)
+- **배포 상태**: 같은 Apps Script 프로젝트에 **세 번째 배포**가 추가로 존재함 (웹 앱, 액세스 권한
+  "meatbox.co.kr 조직 계정 제한", 실행 계정 "나"). 이 배포 URL이 이제 **내부 직원이 실제로 써야 할
+  메인 도구 주소**임 — 진짜 조직 계정 제한이 걸려있는 유일한 배포. **이 URL은 Public 저장소라 여기에도
+  커밋하지 말 것** — 내부 직원들에게 직접 공유
+- 기존 GitHub Pages `index.html` + 기존 "메인"(WRITE_SECRET/모든 사용자) Apps Script 배포는 그대로 남아있음.
+  내부 직원들이 새 배포 URL로 옮겨가면 이 경로는 더 이상 안 쓰게 되므로, 전환이 확실해지면 기존 메인
+  배포를 조직 제한으로 되돌리거나 정리하는 걸 고려할 것 (WRITE_SECRET 노출 문제 해소)
+- 외부 공유용 읽기전용(`?view=1&sid=...`)은 이 새 구조에서 못 씀 (`google.script.run`은 다른 배포로
+  바꿔치기가 안 됨) — 계속 기존 GitHub Pages `index.html`의 뷰 전용 모드로 처리함 (그대로 유지, 변경 없음)
 
 ## 백엔드 접근 권한 / 보안 모델 (2026-08-31 변경됨)
 **중요한 배경**: 원래 메인 Apps Script 배포는 "meatbox.co.kr 조직 계정 제한"이었고 몇 달간 잘 동작했으나,
