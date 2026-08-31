@@ -33,9 +33,15 @@ function ensureHeaders(sheet){
 }
 
 function doGet(e){
-  const action = (e.parameter.action || 'list');
+  const action = e.parameter.action || '';
+  // ?action=list : 기존처럼 JSON 반환 (GitHub Pages의 외부 공유용 읽기전용 배포가 이 경로를 씀)
   if(action === 'list') return jsonResponse(listTemplates());
-  return jsonResponse({error:'unknown action'});
+  if(action) return jsonResponse({error:'unknown action'});
+  // action 파라미터가 없으면(그냥 배포 URL로 접속) 화면(HTML)을 직접 서빙한다.
+  // Index.html 파일을 이 Apps Script 프로젝트에 추가해야 동작함 (apps-script-index.html 참고).
+  return HtmlService.createHtmlOutputFromFile('Index')
+    .setTitle('알림톡 템플릿 관리')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
 function doPost(e){

@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<base target="_top">
+<title>알림톡 템플릿 관리</title>
+<style>
+  :root{
+    --bg:#f5f4f1;
+    --surface:#ffffff;
+    --surface-2:#fbfaf8;
+    --ink:#20211d;
+    --ink-soft:#6b6a63;
+    --line:#e6e3db;
+    --line-strong:#d6d2c6;
+    --accent:#3a5f4a;
+    --accent-soft:#e7efe9;
+    --kakao:#fee500;
+    --kakao-ink:#3c1e1e;
+    --danger:#b5482f;
+    --danger-soft:#f7e8e3;
+    --live:#2f6b46;
+    --live-soft:#e4f1e8;
+    --pending:#8a7228;
+    --pending-soft:#f4eed6;
+    --review:#2f5fa3;
+    --review-soft:#e3ecf7;
+    --approved:#1f7a67;
+    --approved-soft:#e1f2ee;
+    --dormant:#8a8578;
+    --dormant-soft:#ece9e3;
+    --stopped:#a15b1f;
+    --stopped-soft:#faeadd;
+    --neutral:#6b6a63;
+    --neutral-soft:#eceae4;
+    --radius:10px;
+    --shadow:0 1px 2px rgba(32,33,29,0.06), 0 6px 20px -12px rgba(32,33,29,0.18);
+    font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",-apple-system,BlinkMacSystemFont,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink); min-height:100vh;}
+  .app{
+    display:grid; grid-template-columns:300px minmax(0,1fr) 380px; gap:16px;
+    padding:20px; max-width:1500px; margin:0 auto; align-items:start;
+  }
+  @media (max-width: 1180px){
+    .app{grid-template-columns:260px minmax(0,1fr);}
+    .preview-col{grid-column:1 / -1;}
+  }
+  @media (max-width: 760px){
+    .app{grid-template-columns:1fr; padding:12px;}
+    .preview-col{grid-column:auto;}
+  }
+
+  .top-bar{
+    grid-column:1/-1; display:flex; align-items:baseline; justify-content:space-between;
+    gap:12px; padding:4px 4px 4px; margin-bottom:2px;
+  }
+  .brand{display:flex; align-items:baseline; gap:10px;}
+  .brand .eyebrow{font-size:11px; letter-spacing:.14em; color:var(--ink-soft); font-weight:600; text-transform:uppercase;}
+  .brand h1{font-size:19px; margin:0; font-weight:700; letter-spacing:-0.01em;}
+  .top-actions{display:flex; gap:8px;}
+
+  button{font-family:inherit; cursor:pointer;}
+  .btn{
+    border:1px solid var(--line-strong); background:var(--surface); color:var(--ink);
+    padding:8px 13px; border-radius:8px; font-size:13px; font-weight:600;
+    transition:background .12s, border-color .12s;
+  }
+  .btn:hover{background:var(--surface-2); border-color:var(--ink-soft);}
+  .btn-primary{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .btn-primary:hover{background:#31513f;}
+  .btn-danger{background:var(--surface); border-color:var(--danger); color:var(--danger);}
+  .btn-danger:hover{background:var(--danger-soft);}
+  .btn-ghost{border-color:transparent; background:transparent; color:var(--ink-soft); padding:6px 8px;}
+  .btn-ghost:hover{background:var(--surface-2); color:var(--ink);}
+  .btn-sm{padding:5px 9px; font-size:12px;}
+
+  .panel{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow);}
+  .sidebar{display:flex; flex-direction:column; max-height:calc(100vh - 90px); position:sticky; top:20px;}
+  .sidebar-head{padding:14px 14px 10px; border-bottom:1px solid var(--line);}
+  .search-box{
+    display:flex; align-items:center; gap:6px;
+    border:1px solid var(--line-strong); border-radius:8px; padding:7px 10px; background:var(--surface-2);
+  }
+  .search-box input{border:none; background:transparent; outline:none; font-size:13px; width:100%; color:var(--ink);}
+  .filter-row{margin-top:8px;}
+  .filter-row select{width:100%; font-size:12.5px; padding:7px 9px;}
+  .tpl-list{overflow-y:auto; padding:8px; flex:1;}
+  .tpl-item{padding:10px 10px; border-radius:8px; cursor:pointer; border:1px solid transparent; margin-bottom:4px; position:relative;}
+  .tpl-item:hover{background:var(--surface-2);}
+  .tpl-item.selected{background:var(--accent-soft); border-color:var(--accent);}
+  .tpl-item-top{display:flex; justify-content:space-between; align-items:center; gap:6px;}
+  .tpl-code{font-size:10.5px; color:var(--ink-soft); font-weight:600; letter-spacing:.02em;}
+  .tpl-name{font-size:13.5px; font-weight:700; margin-top:2px; line-height:1.3;}
+  .badge{font-size:10px; font-weight:700; padding:2px 7px; border-radius:100px; white-space:nowrap;}
+  .badge-neutral{background:var(--neutral-soft); color:var(--neutral);}
+  .badge-pending{background:var(--pending-soft); color:var(--pending);}
+  .badge-review{background:var(--review-soft); color:var(--review);}
+  .badge-approved{background:var(--approved-soft); color:var(--approved);}
+  .badge-live{background:var(--live-soft); color:var(--live);}
+  .badge-dormant{background:var(--dormant-soft); color:var(--dormant);}
+  .badge-stopped{background:var(--stopped-soft); color:var(--stopped);}
+  .badge-blocked{background:var(--danger-soft); color:var(--danger);}
+  .tpl-meta{font-size:11px; color:var(--ink-soft); margin-top:4px;}
+  .empty-list{padding:30px 14px; text-align:center; color:var(--ink-soft); font-size:12.5px; line-height:1.6;}
+  .sidebar-foot{padding:10px 14px; border-top:1px solid var(--line); display:flex; gap:6px;}
+
+  .editor{padding:22px 24px 26px;}
+  .editor-empty{padding:80px 20px; text-align:center; color:var(--ink-soft);}
+  .editor-empty .glyph{font-size:34px; margin-bottom:10px;}
+
+  .overview-head{margin-bottom:16px;}
+  .overview-title{font-size:16px; font-weight:800; letter-spacing:-0.01em;}
+  .overview-sub{font-size:12.5px; color:var(--ink-soft); margin-top:4px;}
+  .overview-grid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:12px;
+  }
+  .overview-card{
+    border:1px solid var(--line); border-radius:10px; padding:14px; cursor:pointer;
+    background:var(--surface-2); transition:border-color .12s, box-shadow .12s, transform .12s;
+  }
+  .overview-card:hover{border-color:var(--accent); box-shadow:var(--shadow); transform:translateY(-1px); background:var(--surface);}
+  .overview-card-top{display:flex; justify-content:space-between; align-items:center; gap:6px; margin-bottom:8px;}
+  .overview-card-name{font-size:14px; font-weight:700; line-height:1.35; margin-bottom:6px;}
+  .overview-card-meta{font-size:11.5px; color:var(--ink-soft);}
+  .editor-head{display:flex; justify-content:space-between; align-items:flex-end; gap:14px; margin-bottom:18px;}
+  .editor-dates{display:flex; gap:14px; font-size:11.5px; color:var(--ink-soft); margin-bottom:10px;}
+  .editor-head .status-field{width:180px; flex-shrink:0;}
+  .field-row{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;}
+  .field-row.single{grid-template-columns:1fr;}
+  .field-row.three{grid-template-columns:1fr 1fr 1fr;}
+  label{display:block; font-size:11.5px; font-weight:700; color:var(--ink-soft); margin-bottom:5px; letter-spacing:.01em;}
+  .req-dot{display:inline-block; width:5px; height:5px; border-radius:50%; background:var(--danger); margin-left:5px; vertical-align:middle;}
+  input[type=text], textarea, select{
+    width:100%; border:1px solid var(--line-strong); border-radius:8px; padding:9px 10px;
+    font-size:13.5px; font-family:inherit; color:var(--ink); background:var(--surface); outline:none;
+  }
+  input[type=text]:focus, textarea:focus, select:focus{border-color:var(--accent);}
+  textarea{resize:vertical; line-height:1.55;}
+  select:disabled, input[type=text]:disabled, textarea:disabled{background:var(--surface-2); color:var(--ink-soft); cursor:not-allowed;}
+  .field-hint{font-size:11px; color:var(--ink-soft); margin-top:5px; line-height:1.5;}
+
+  .section-title{font-size:12.5px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); margin:22px 0 10px;}
+  .btn-block{border:1px solid var(--line); border-radius:8px; padding:12px; margin-bottom:10px; background:var(--surface-2);}
+  .btn-block-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
+  .btn-block-head span{font-size:12px; font-weight:700; color:var(--ink-soft);}
+  .btn-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .btn-grid .full{grid-column:1/-1;}
+  .btn-help{font-size:11px; color:var(--ink-soft); margin-top:8px; line-height:1.5; padding-top:8px; border-top:1px dashed var(--line-strong);}
+  .add-link{font-size:12.5px; font-weight:700; color:var(--accent); background:none; border:none; padding:4px 0; text-align:left;}
+  .add-link:hover{text-decoration:underline;}
+
+  .editor-actions{display:flex; justify-content:flex-end; gap:8px; margin-top:22px; padding-top:16px; border-top:1px solid var(--line);}
+
+  .preview-col{position:sticky; top:20px;}
+  .preview-panel{padding:16px;}
+  .preview-panel h3{font-size:12.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); margin:0 0 12px;}
+  /* ---- KakaoTalk-style mock (실제 알림톡 화면 비율 기준) ---- */
+  .kakao-frame{
+    background:#ffffff; border:1px solid #ececea; border-radius:14px;
+    padding:16px;
+  }
+  .kakao-bubble-wrap{display:flex; flex-direction:column; align-items:stretch; gap:6px;}
+  .kakao-bubble{
+    background:#ffffff; border:1px solid #ededea; border-radius:16px;
+    box-shadow:0 1px 2px rgba(0,0,0,.05); width:100%; overflow:hidden;
+  }
+  .kakao-arrived{
+    background:var(--kakao); color:var(--kakao-ink); font-size:14px; font-weight:700;
+    padding:15px 20px; display:block;
+  }
+  .kakao-image{display:block; width:100%; max-height:260px; object-fit:cover;}
+  .kakao-body{padding:18px 20px; font-size:15px; line-height:1.75; color:#1a1a1a; white-space:pre-wrap; word-break:break-word;}
+  .kakao-buttons{padding:0 16px 18px; display:flex; flex-direction:column; gap:8px;}
+  .kakao-buttons button{
+    width:100%; border:none; background:#eff0ee; border-radius:10px;
+    padding:14px 12px; font-size:14px; font-weight:700; color:#2b2b2b; text-align:center;
+  }
+  .kakao-msg-time{font-size:10.5px; color:#8b8b8b; white-space:nowrap; text-align:right; padding-right:2px;}
+
+  .image-upload-block{border:1px dashed var(--line-strong); border-radius:8px; padding:12px; background:var(--surface-2);}
+  .image-preview-row{display:flex; align-items:center; gap:12px;}
+  .image-thumb{width:72px; height:72px; object-fit:cover; border-radius:8px; border:1px solid var(--line-strong); flex-shrink:0;}
+  .image-preview-actions{display:flex; flex-direction:column; gap:6px; align-items:flex-start;}
+  .info-block{margin-top:16px; padding-top:14px; border-top:1px solid var(--line);}
+  .info-block h4{font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin:0 0 6px;}
+  .info-block ul{margin:0 0 12px; padding-left:16px; font-size:12.5px; line-height:1.6; color:var(--ink);}
+  .info-block p{margin:0 0 12px; font-size:12.5px; line-height:1.6; color:var(--ink);}
+  .info-block .muted{color:var(--ink-soft); font-style:normal;}
+  .preview-toggle{display:flex; gap:6px; margin-bottom:12px;}
+  .preview-toggle-btn{flex:1; padding:7px 8px; font-size:12px; font-weight:700; border-radius:8px; border:1px solid var(--line-strong); background:var(--surface); color:var(--ink-soft); cursor:pointer;}
+  .preview-toggle-btn.active{background:var(--accent); border-color:var(--accent); color:#fff;}
+
+  .toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+    background:var(--ink); color:#fff; padding:9px 18px; border-radius:100px; font-size:12.5px; font-weight:600;
+    opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:50;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(-4px);}
+  input[type=file]{display:none;}
+
+  .loading-overlay{
+    position:fixed; inset:0; background:rgba(20,20,18,.28);
+    display:flex; align-items:center; justify-content:center; z-index:100;
+  }
+  .spinner{
+    width:36px; height:36px; border-radius:50%;
+    border:3px solid rgba(255,255,255,.35); border-top-color:#fff;
+    animation:spin .7s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+  <div class="top-bar">
+    <div class="brand">
+      <span class="eyebrow">Kakao AlimTalk</span>
+      <h1>알림톡 템플릿 관리 <span class="badge badge-neutral" id="viewOnlyBadge" style="display:none;">읽기 전용</span></h1>
+    </div>
+    <div class="top-actions">
+      <button class="btn btn-sm" id="overviewBtn">전체 목록</button>
+      <button class="btn btn-sm" id="exportBtn" title="셀 안에서 줄바꿈이 필요하면 Alt+Enter를 쓰거나, 그냥 텍스트로 \n 을 입력하세요.">내보내기</button>
+      <button class="btn btn-primary btn-sm" id="newTplBtn">+ 새 템플릿</button>
+    </div>
+  </div>
+
+  <div class="panel sidebar">
+    <div class="sidebar-head">
+      <div class="search-box">
+        <span>🔍</span>
+        <input type="text" id="searchInput" placeholder="템플릿명 · 코드 검색">
+      </div>
+      <div class="filter-row">
+        <select id="statusFilterSelect"></select>
+      </div>
+    </div>
+    <div class="tpl-list" id="tplList"></div>
+    <div class="sidebar-foot">
+      <span style="font-size:11.5px; color:var(--ink-soft);" id="countLabel"></span>
+    </div>
+  </div>
+
+  <div class="panel editor" id="editorPanel"></div>
+
+  <div class="preview-col">
+    <div class="panel preview-panel" id="previewPanel"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="loading-overlay" id="loadingOverlay" style="display:none;">
+  <div class="spinner"></div>
+</div>
+
+<script>
+(function(){
+
+  const STATUS_OPTIONS = ['선택','검수 전','검수 중','검수완료','사용중','휴면','중지','차단'];
+  const STATUS_META = {
+    '선택':{cls:'badge-neutral'},
+    '검수 전':{cls:'badge-pending'},
+    '검수 중':{cls:'badge-review'},
+    '검수완료':{cls:'badge-approved'},
+    '사용중':{cls:'badge-live'},
+    '휴면':{cls:'badge-dormant'},
+    '중지':{cls:'badge-stopped'},
+    '차단':{cls:'badge-blocked'}
+  };
+
+  const MESSAGE_TYPE_OPTIONS = ['기본형','이미지형'];
+  const MAX_IMAGE_BYTES = 3 * 1024 * 1024; // 원본 파일 기준 3MB 제한 (base64 인코딩 후에도 저장 한도 내로 유지)
+
+  // URL에 ?view=1 이 붙으면 완전 읽기 전용 모드로 동작한다 (조회/검색/필터/미리보기/내보내기만 가능).
+  // 같은 페이지·같은 데이터소스를 그대로 쓰되, 등록/수정/삭제 관련 UI와 이벤트 바인딩을 전부 건너뛴다.
+  // 이 페이지 자체가 배포 접근권한(meatbox.co.kr 조직 계정)으로 이미 보호되므로, 이건 내부 사용자가
+  // 실수로 수정하는 걸 막는 화면단 안전장치 용도다.
+  const VIEW_ONLY = new URLSearchParams(location.search).get('view') === '1';
+
+  // URL에 ?demo=1 이 붙으면 실제 구글 시트에 전혀 연결하지 않고 샘플 데이터만 사용한다.
+  // 완전히 오프라인 데모가 필요할 때 사용 — isRemoteConfigured()가 항상 false를 반환하게 되어
+  // 저장/삭제/이미지 업로드 등 실제 백엔드를 건드리는 모든 경로가 원천 차단된다.
+  const FORCE_DEMO = new URLSearchParams(location.search).get('demo') === '1';
+
+  const FIELD_META = {
+    mobileUrl:{label:'Mobile 링크', placeholder:'https://#{랜딩URL}'},
+    pcUrl:{label:'PC 링크 (선택)', placeholder:'https://#{랜딩URL}'},
+    androidScheme:{label:'AOS 스킴', placeholder:'myapp://...'},
+    iosScheme:{label:'iOS 스킴', placeholder:'myapp://...'},
+    formUrl:{label:'비즈니스폼 링크', placeholder:'https://business.kakao.com/form/...'},
+    phoneNumber:{label:'전화번호', placeholder:'02-1234-5678'},
+    mapAddress:{label:'주소', placeholder:'서울특별시 ...'},
+    mapUrl:{label:'지도 링크 (선택)', placeholder:'https://map.kakao.com/...'},
+    realUrlMobile:{label:'실랜딩 URL - Mobile (선택)', placeholder:'https://실제 연결되는 Mobile 페이지 주소'},
+    realUrlPc:{label:'실랜딩 URL - PC (선택)', placeholder:'https://실제 연결되는 PC 페이지 주소'}
+  };
+
+  // 버튼 데이터에 들어갈 수 있는 모든 필드 키 (blankButton/migrateTemplate에서 공용으로 사용)
+  const ALL_BUTTON_FIELDS = ['mobileUrl','pcUrl','androidScheme','iosScheme','formUrl','phoneNumber','mapAddress','mapUrl','realUrlMobile','realUrlPc'];
+
+  // 카카오 알림톡 공식 버튼 유형. fields: 해당 타입에서 노출할 입력 필드.
+  const BUTTON_TYPE_CONFIG = {
+    '웹링크':{code:'WL', fields:['mobileUrl','pcUrl','realUrlMobile','realUrlPc'],
+      help:'Mobile 링크는 필수이며, PC 링크는 선택 입력입니다. 클릭 시 인앱 브라우저로 열립니다.'},
+    '앱링크':{code:'AL', fields:['androidScheme','iosScheme','mobileUrl','pcUrl','realUrlMobile','realUrlPc'],
+      help:'AOS 스킴 · iOS 스킴 · Mobile 링크 중 2개 이상을 입력해야 합니다. PC 링크는 선택입니다.'},
+    '배송조회':{code:'DS', fields:[],
+      help:'본문에 택배사명과 송장번호가 포함되면 배송조회 버튼이 자동으로 노출됩니다. 별도 링크 입력은 필요하지 않습니다.'},
+    '봇키워드':{code:'BK', fields:[],
+      help:'버튼 클릭 시 버튼명(키워드)이 챗봇으로 전달됩니다. 바로연결 버튼이며 별도 링크가 필요하지 않습니다.'},
+    '봇전환':{code:'BT', fields:[],
+      help:'챗봇 관리자센터의 챗봇을 사용하는 채널에서만 등록할 수 있습니다. 별도 링크가 필요하지 않습니다.'},
+    '상담톡전환':{code:'BC', fields:[],
+      help:'상담톡을 사용하는 채널에서만 등록할 수 있습니다. 별도 링크가 필요하지 않습니다.'},
+    '메시지전달':{code:'MD', fields:[],
+      help:'버튼 클릭 시 버튼명과 메시지 본문이 함께 전달됩니다. 별도 링크가 필요하지 않습니다.'},
+    '비즈니스폼':{code:'BF', fields:['formUrl'],
+      help:'카카오 비즈니스폼 링크를 입력하세요. 클릭 시 신청서/설문 등 폼 페이지로 연결됩니다.'},
+    '전화하기':{code:'TEL', fields:['phoneNumber'],
+      help:'클릭 시 입력한 번호로 바로 전화 연결됩니다. 하이픈(-) 포함 형식을 권장합니다.'},
+    '지도보기':{code:'MAP', fields:['mapAddress','mapUrl'],
+      help:'주소는 필수이며, 커스텀 지도 링크는 선택입니다. 클릭 시 카카오맵으로 연결됩니다.'},
+    '채널 추가':{code:'AC', fields:[], fixedLabel:'채널 추가',
+      help:'채널추가형·복합형 템플릿에서만 사용 가능하며, 버튼명은 [채널 추가]로 고정됩니다.'}
+  };
+  const BUTTON_TYPE_LIST = Object.keys(BUTTON_TYPE_CONFIG);
+  // 버튼 타입 선택 시 자동으로 채워주는 기본값 (모두 수정 가능)
+  const DEFAULT_LANDING_URL = 'https://#{랜딩URL}';
+  const DEFAULT_TEL_LABEL = '고객센터 연결';
+
+  let templates = [];
+  let selectedId = null;
+  let statusFilter = 'all';
+  let searchTerm = '';
+  // 미리보기 토글 상태: true면 '변수 적용 후'(t.varExample) 표시. 템플릿 선택 시 기본값(false)으로 초기화됨.
+  let previewShowExample = false;
+
+  const $ = (sel, root=document) => root.querySelector(sel);
+  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+  function uid(){ return 'tpl_' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+  // 브라우저 표준시가 무엇이든 상관없이 항상 한국 시간(KST) 문자열을 만든다.
+  function nowKstString(){
+    const parts = new Intl.DateTimeFormat('ko-KR', {
+      timeZone:'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit',
+      hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false
+    }).formatToParts(new Date());
+    const get = t => (parts.find(p=>p.type===t) || {}).value || '';
+    return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
+  }
+
+  function toast(msg){
+    const t = $('#toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(()=> t.classList.remove('show'), 1800);
+  }
+
+  // 저장/삭제/이미지 업로드처럼 서버 응답을 기다리는 동안 전체 화면 스피너를 띄운다.
+  // 중첩 호출을 대비해 카운터로 관리 (마지막 하나가 끝나야 완전히 숨김).
+  // 응답이 너무 빨리 와서 깜빡였다 사라지는 걸 못 보는 일이 없도록 최소 노출 시간을 둔다.
+  const MIN_LOADING_MS = 400;
+  let loadingCount = 0;
+  let loadingShownAt = 0;
+  function showLoading(){
+    loadingCount++;
+    if(loadingCount === 1){
+      loadingShownAt = Date.now();
+      const el = $('#loadingOverlay');
+      if(el) el.style.display = 'flex';
+    }
+  }
+  function hideLoading(){
+    loadingCount = Math.max(0, loadingCount - 1);
+    if(loadingCount > 0) return;
+    const el = $('#loadingOverlay');
+    if(!el) return;
+    const remaining = MIN_LOADING_MS - (Date.now() - loadingShownAt);
+    if(remaining > 0){
+      setTimeout(()=>{ if(loadingCount === 0) el.style.display = 'none'; }, remaining);
+    }else{
+      el.style.display = 'none';
+    }
+  }
+
+  function escapeHtml(str){
+    return String(str==null?'':str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function escapeAttr(v){ return escapeHtml(v||''); }
+
+  function blankButton(){
+    const b = {type:'웹링크', label:''};
+    ALL_BUTTON_FIELDS.forEach(f => b[f] = '');
+    b.mobileUrl = DEFAULT_LANDING_URL;
+    b.pcUrl = DEFAULT_LANDING_URL;
+    return b;
+  }
+
+  // 이전 버전 데이터 / 새 템플릿을 현재 스키마 규칙에 맞게 정리
+  // 주의: 버튼 배열 자체의 정리(라벨 복구 포함)는 호출부에서 별도로 처리한다.
+  function migrateTemplate(t){
+    t.buttons = (t.buttons||[]).map(b=>{
+      const type = BUTTON_TYPE_LIST.includes(b.type) ? b.type : '웹링크';
+      const cfg = BUTTON_TYPE_CONFIG[type];
+      const cleaned = { type, label: cfg.fixedLabel || b.label || '' };
+      ALL_BUTTON_FIELDS.forEach(f => cleaned[f] = b[f] || '');
+      return cleaned;
+    });
+
+    if(!STATUS_OPTIONS.includes(t.status)){
+      if(t.status === '사용중') t.status = '사용중';
+      else if(t.status === '사용전') t.status = '검수 전';
+      else t.status = '선택';
+    }
+
+    // 예전 스키마: emphasisType 자리에 실제로는 메시지유형 값(이미지형 등)이 들어있던 경우 보정
+    if(MESSAGE_TYPE_OPTIONS.includes(t.emphasisType) && !MESSAGE_TYPE_OPTIONS.includes(t.messageType)){
+      t.messageType = t.emphasisType;
+    }
+    if(!MESSAGE_TYPE_OPTIONS.includes(t.messageType)) t.messageType = '기본형';
+    delete t.emphasisType;
+    if(typeof t.hasImage !== 'boolean') t.hasImage = !!t.hasImage;
+    if(!t.varExample) t.varExample = '';
+    // 예전에 UTC(...Z) ISO 형식으로 저장된 등록일/수정일을 한국 시간 문자열로 정리한다.
+    // 이미 정리된 값이면 toKstDisplay가 그대로 반환하므로 다시 저장해도 안전하다.
+    t.createdAt = toKstDisplay(t.createdAt);
+    t.updatedAt = toKstDisplay(t.updatedAt);
+    return t;
+  }
+
+  function seedData(){
+    return [
+      {
+        id: uid(), code:'KM-MKT006', name:'[육마트] 체험 후기4', status:'사용중',
+        messageType:'이미지형', hasImage:false,
+        content:'[미트박스] #{미작성 체험 후기} 작성 안내\n\n받아보신 키로육 상품은 어떠셨나요?\n상품 의견을 받는 마지막 날이에요.\n\n직접 사용해보신 솔직한 후기를 남겨주세요.\n\n사장님의 소중한 의견을 바탕으로 상품을 더 꼼꼼하게 개선하겠습니다.',
+        buttons:[{type:'웹링크', label:'작성하기', mobileUrl:'https://#{랜딩URL}', pcUrl:'https://#{랜딩URL}', androidScheme:'', iosScheme:''}],
+        note:'템플릿 카테고리: 서비스이용 > 피드백 요청',
+        sendTiming:'일배치 오전 10시 발송\n샘플평, 고기 도착사진 미작성 회원\n육마트 세절 kg육 주문 건 배송완료일 기준 +7일째 (예시) 8/21 배송완료 시 8/28 발송',
+        sendTarget:'미작성 체험 후기 대상 회원'
+      },
+      {
+        id: uid(), code:'KM-MKT005', name:'[육마트] 체험 후기3', status:'사용중',
+        messageType:'이미지형', hasImage:false,
+        content:'[미트박스] #{미작성 체험 후기} 작성 안내\n\n받아보신 키로육 상품의 #{미작성 체험 후기}을 작성해 주세요!\n\n사장님의 소중한 의견을 바탕으로 상품을 더 꼼꼼하게 개선하겠습니다.',
+        buttons:[{type:'웹링크', label:'작성하기', mobileUrl:'https://#{랜딩URL}', pcUrl:'https://#{랜딩URL}', androidScheme:'', iosScheme:''}],
+        note:'템플릿 카테고리: 서비스이용 > 피드백 요청',
+        sendTiming:'일배치 오전 10시 발송\n샘플평, 고기 도착사진 미작성 회원\n육마트 세절 kg 주문건 배송완료일 기준 +4일째 (예시) 8/21 배송완료 시 8/25 발송',
+        sendTarget:'미작성 체험 후기 대상 회원'
+      }
+    ];
+  }
+
+  // ====== 구글 시트 연동 ======
+  // 이 페이지는 GitHub Pages가 아니라 Apps Script가 직접 서빙한다 (doGet이 HtmlService로 반환).
+  // 그래서 fetch()로 별도 API 주소를 호출할 필요가 없고, google.script.run이 같은 프로젝트의
+  // 서버 함수(Code.gs)를 인증된 배포 컨텍스트 안에서 직접 호출한다 — 배포 접근 권한(예: meatbox.co.kr
+  // 조직 계정 제한)이 그대로 적용되며, 오늘 겪은 fetch()·CORS 문제 자체가 발생하지 않는다.
+  // 공개 저장소에 API 주소나 비밀 토큰을 노출할 필요도 없어진다.
+  function isRemoteConfigured(){ return !FORCE_DEMO; }
+
+  // fnName: Code.gs에 정의된 서버 함수 이름. google.script.run은 콜백 방식이라 Promise로 감싼다.
+  function runServer(fnName, ...args){
+    return new Promise((resolve, reject)=>{
+      google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(err => reject(err instanceof Error ? err : new Error(String(err))))
+        [fnName](...args);
+    });
+  }
+
+  async function apiList(){
+    return runServer('listTemplates');
+  }
+
+  async function apiSaveTemplate(t){
+    const payload = { ...t };
+    payload.imageUrl = t.image || '';
+    delete payload.image;
+    delete payload._unsaved;
+    return runServer('saveTemplate', payload);
+  }
+
+  async function apiDeleteTemplate(id){
+    return runServer('deleteTemplate', id);
+  }
+
+  async function apiUploadImage(id, base64, mimeType){
+    return runServer('uploadImage', id, base64, mimeType);
+  }
+
+  async function apiDeleteImage(id){
+    return runServer('deleteImageFile', id);
+  }
+
+  async function loadData(){
+    if(!isRemoteConfigured()){
+      templates = seedData().map(t => migrateTemplate(t));
+      buildStatusFilterOptions();
+      renderAll();
+      toast('샘플 데이터로 표시 중입니다 (실제 데이터 아님)');
+      return;
+    }
+    showLoading();
+    try{
+      const rows = await apiList();
+      templates = rows.map(row=>{
+        const t = { ...row };
+        t.image = row.imageUrl || null;
+        t.hasImage = !!row.imageUrl;
+        delete t.imageUrl;
+        return migrateTemplate(t);
+      });
+    }catch(e){
+      console.error('template list load failed', e);
+      templates = seedData().map(t => migrateTemplate(t));
+      toast('구글 시트를 불러오지 못해 임시 데이터로 표시합니다');
+    }finally{
+      hideLoading();
+    }
+    buildStatusFilterOptions();
+    renderAll();
+  }
+
+  function buildStatusFilterOptions(){
+    const sel = $('#statusFilterSelect');
+    sel.innerHTML = `<option value="all">전체 상태</option>` +
+      STATUS_OPTIONS.map(s=>`<option value="${s}">${s}</option>`).join('');
+    sel.value = statusFilter;
+    sel.addEventListener('change', ()=>{
+      statusFilter = sel.value;
+      renderList();
+    });
+  }
+
+  async function saveTemplateRemote(t, silent){
+    if(!isRemoteConfigured()){
+      if(!silent) toast('구글 시트 연동 URL이 설정되지 않아 저장되지 않습니다');
+      return;
+    }
+    showLoading();
+    try{
+      const result = await apiSaveTemplate(t);
+      if(result && result.id) t.id = result.id;
+      if(!silent) toast('저장했습니다');
+    }catch(e){
+      console.error('template save failed', e);
+      if(!silent) toast('저장 중 오류가 발생했습니다');
+    }finally{
+      hideLoading();
+    }
+  }
+
+  async function deleteTemplateRemote(id){
+    if(!isRemoteConfigured()) return;
+    showLoading();
+    try{ await apiDeleteTemplate(id); }
+    catch(e){ console.error('template delete failed', e); toast('삭제 중 오류가 발생했습니다'); }
+    finally{ hideLoading(); }
+  }
+
+  function getSelected(){ return templates.find(t => t.id === selectedId) || null; }
+
+  // 저장하지 않은 새 템플릿(_unsaved)이 있는 상태로 다른 화면으로 이동하면
+  // 목록/시트에 남지 않도록 로컬에서 제거한다.
+  function discardUnsavedDraft(exceptId){
+    templates = templates.filter(t => !(t._unsaved && t.id !== exceptId));
+  }
+
+  function selectTemplate(id){
+    discardUnsavedDraft(id);
+    selectedId = id;
+    previewShowExample = false;
+  }
+
+  // 저장 시 사용하는 유효성 검사.
+  // existingList: 중복 여부를 비교할 대상 목록 (자기 자신은 id로 제외됨)
+  function validateTemplateAgainst(target, existingList){
+    const errors = [];
+    const isDuplicateValue = (field) => {
+      const val = (target[field] || '').trim();
+      if(!val) return false;
+      return existingList.some(other => other.id !== target.id && (other[field] || '').trim() === val);
+    };
+
+    if(!target.name || !target.name.trim()) errors.push('템플릿명을 입력해주세요.');
+    else if(isDuplicateValue('name')) errors.push('이미 등록된 템플릿명과 중복됩니다.');
+    if(!target.status || target.status === '선택') errors.push('템플릿 상태를 선택해주세요.');
+    if(!target.code || !target.code.trim()) errors.push('템플릿 코드를 입력해주세요.');
+    else if(isDuplicateValue('code')) errors.push('이미 등록된 템플릿 코드와 중복됩니다.');
+    if(!target.content || !target.content.trim()) errors.push('템플릿 내용을 입력해주세요.');
+    if(!target.sendTiming || !target.sendTiming.trim()) errors.push('발송 시점을 입력해주세요.');
+    if(!target.sendTarget || !target.sendTarget.trim()) errors.push('발송 대상을 입력해주세요.');
+    if(target.messageType === '이미지형' && !target.image) errors.push('메시지 유형이 이미지형이면 이미지를 등록해야 합니다.');
+
+    (target.buttons||[]).forEach((b, i)=>{
+      const cfg = BUTTON_TYPE_CONFIG[b.type] || BUTTON_TYPE_CONFIG['웹링크'];
+      if(!cfg.fixedLabel && (!b.label || !b.label.trim())){
+        errors.push(`버튼 ${i+1}: 버튼명을 입력해주세요.`);
+      }
+      cfg.fields.forEach(f=>{
+        const meta = FIELD_META[f];
+        const isOptional = meta.label.includes('(선택)');
+        if(!isOptional && (!b[f] || !String(b[f]).trim())){
+          errors.push(`버튼 ${i+1}: ${meta.label}을(를) 입력해주세요.`);
+        }
+      });
+    });
+
+    return errors;
+  }
+
+  // 최근 등록순(createdAt 내림차순)으로 정렬. 등록일이 없는 미저장 새 템플릿은 항상 맨 위로.
+  // 수정일(updatedAt)은 정렬에 영향을 주지 않는다.
+  function sortByRecentlyCreated(list){
+    const key = t => t.createdAt || '9999-99-99 99:99:99';
+    return [...list].sort((a,b) => key(b).localeCompare(key(a)));
+  }
+
+  function filteredTemplates(){
+    const filtered = templates.filter(t=>{
+      if(statusFilter !== 'all' && t.status !== statusFilter) return false;
+      if(searchTerm){
+        const s = searchTerm.toLowerCase();
+        return (t.name||'').toLowerCase().includes(s) || (t.code||'').toLowerCase().includes(s);
+      }
+      return true;
+    });
+    return sortByRecentlyCreated(filtered);
+  }
+
+  function renderAll(){ renderList(); renderEditor(); renderPreview(); }
+
+  function renderList(){
+    const list = $('#tplList');
+    const items = filteredTemplates();
+    $('#countLabel').textContent = `총 ${templates.length}개 · 사용중 ${templates.filter(t=>t.status==='사용중').length}개`;
+
+    if(!items.length){
+      list.innerHTML = `<div class="empty-list">조건에 맞는 템플릿이 없어요.<br>새 템플릿을 만들어 보세요.</div>`;
+      return;
+    }
+    list.innerHTML = items.map(t=>{
+      const meta = STATUS_META[t.status] || STATUS_META['선택'];
+      const metaLine = `${escapeHtml(t.messageType||'기본형')}${t.messageType==='이미지형' && t.hasImage ? ' · 이미지 첨부됨' : ''}`;
+      return `
+      <div class="tpl-item ${t.id===selectedId?'selected':''}" data-id="${t.id}">
+        <div class="tpl-item-top">
+          <span class="tpl-code">${escapeHtml(t.code||'코드 없음')}</span>
+          <span class="badge ${meta.cls}">${escapeHtml(t.status||'선택')}</span>
+        </div>
+        <div class="tpl-name">${escapeHtml(t.name||'(제목 없음)')}</div>
+        <div class="tpl-meta">${metaLine}</div>
+      </div>`;
+    }).join('');
+
+    $$('.tpl-item', list).forEach(el=>{
+      el.addEventListener('click', ()=>{ selectTemplate(el.dataset.id); renderAll(); });
+    });
+  }
+
+  function selectOptionsHtml(options, selected, disabledValues){
+    disabledValues = disabledValues || [];
+    return options.map(o=>`<option value="${o}" ${o===selected?'selected':''} ${disabledValues.includes(o)?'disabled':''}>${o}</option>`).join('');
+  }
+
+  function statusOptionsHtml(selected){
+    return selectOptionsHtml(STATUS_OPTIONS, selected, ['선택']);
+  }
+
+  // 뷰 전용 모드에서 편집기 패널을 읽기 전용으로 잠근다.
+  // 이벤트 리스너를 아예 붙이지 않으므로(renderEditor에서 이 함수 호출 후 return),
+  // 여기서는 입력 요소 비활성화와 편집용 버튼/링크 숨김만 처리하면 된다.
+  function applyViewOnlyLock(panel){
+    $$('input, textarea, select', panel).forEach(el => el.disabled = true);
+    const actions = $('.editor-actions', panel);
+    if(actions) actions.style.display = 'none';
+    const addBtn = $('#addButtonBtn', panel);
+    if(addBtn) addBtn.style.display = 'none';
+    $$('[data-remove]', panel).forEach(el => el.style.display = 'none');
+
+    const imgBlock = $('#imageUploadBlock', panel);
+    if(imgBlock){
+      const uploadLabel = imgBlock.querySelector('label[for="imageFileInput"]');
+      const removeBtn = imgBlock.querySelector('#removeImageBtn');
+      const hint = imgBlock.querySelector('.field-hint');
+      if(uploadLabel) uploadLabel.style.display = 'none';
+      if(removeBtn) removeBtn.style.display = 'none';
+      if(hint) hint.style.display = 'none';
+      if(!imgBlock.querySelector('.image-preview-row')) imgBlock.style.display = 'none';
+    }
+  }
+
+  function renderEditor(){
+    const panel = $('#editorPanel');
+    const t = getSelected();
+    if(!t){
+      renderOverview(panel);
+      return;
+    }
+
+    const isImageType = t.messageType === '이미지형';
+    const metaDates = (t.createdAt || t.updatedAt) ? `
+      <div class="editor-dates">
+        <span>등록일: ${escapeHtml(t.createdAt || '-')}</span>
+        <span>수정일: ${escapeHtml(t.updatedAt || '-')}</span>
+      </div>` : '';
+
+    panel.innerHTML = `
+      ${metaDates}
+      <div class="editor-head">
+        <div style="flex:1;">
+          <label>템플릿명<span class="req-dot"></span></label>
+          <input type="text" id="f_name" value="${escapeAttr(t.name)}" placeholder="예: [육마트] 체험 후기4">
+        </div>
+        <div class="status-field">
+          <label>템플릿 상태<span class="req-dot"></span></label>
+          <select id="f_status">${statusOptionsHtml(t.status||'선택')}</select>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div>
+          <label>템플릿 코드<span class="req-dot"></span></label>
+          <input type="text" id="f_code" value="${escapeAttr(t.code)}" placeholder="템플릿 코드 규칙에 맞게 입력하세요.">
+        </div>
+        <div>
+          <label>메시지 유형</label>
+          <select id="f_msgtype">${selectOptionsHtml(MESSAGE_TYPE_OPTIONS, t.messageType||'기본형')}</select>
+        </div>
+      </div>
+
+      ${isImageType ? `
+      <div class="field-row single">
+        <div>
+          <label>이미지<span class="req-dot"></span></label>
+          <div class="image-upload-block" id="imageUploadBlock">
+            ${t.image ? `
+              <div class="image-preview-row">
+                <img src="${t.image}" alt="템플릿 이미지 미리보기" class="image-thumb">
+                <div class="image-preview-actions">
+                  <label class="btn btn-sm" for="imageFileInput" style="margin:0;">이미지 교체</label>
+                  <button type="button" class="btn btn-danger btn-sm" id="removeImageBtn">이미지 삭제</button>
+                </div>
+              </div>
+            ` : `
+              <label class="btn btn-sm" for="imageFileInput" style="margin:0;">이미지 업로드</label>
+              <div class="field-hint">JPG · PNG 등, 3MB 이하 이미지를 권장합니다. 업로드한 이미지는 오른쪽 미리보기에 바로 반영됩니다.</div>
+            `}
+            <input type="file" id="imageFileInput" accept="image/*">
+          </div>
+        </div>
+      </div>` : ''}
+
+      <div class="field-row single">
+        <div>
+          <label>템플릿 내용<span class="req-dot"></span></label>
+          <textarea id="f_content" rows="9" placeholder="발송될 알림톡 본문을 입력하세요. 다른 문서에서 복사해 붙여넣어도 줄바꿈이 그대로 유지됩니다."></textarea>
+        </div>
+      </div>
+
+      <div class="field-row single">
+        <div>
+          <label>변수 적용 예시</label>
+          <textarea id="f_varExample" rows="9" placeholder="템플릿 내용의 #{변수}에 실제 값을 채운 예시를 입력하세요. 미리보기에서 '변수 적용 후'로 확인할 수 있습니다."></textarea>
+        </div>
+      </div>
+
+      <div class="section-title">버튼</div>
+      <div id="buttonList"></div>
+      <button type="button" class="add-link" id="addButtonBtn">+ 버튼 추가</button>
+
+      <div class="field-row" style="margin-top:18px;">
+        <div>
+          <label>발송 시점<span class="req-dot"></span></label>
+          <textarea id="f_timing" rows="4" placeholder="한 줄에 하나씩 입력하세요."></textarea>
+        </div>
+        <div>
+          <label>발송 대상<span class="req-dot"></span></label>
+          <textarea id="f_target" rows="4" placeholder="발송 대상 조건을 입력하세요."></textarea>
+        </div>
+      </div>
+
+      <div class="field-row single">
+        <div>
+          <label>비고</label>
+          <textarea id="f_note" rows="2" placeholder="템플릿 카테고리, 참고사항 등"></textarea>
+        </div>
+      </div>
+
+      <div class="editor-actions">
+        <button class="btn btn-danger" id="deleteBtn">삭제</button>
+        <button class="btn btn-primary" id="saveBtn">저장</button>
+      </div>
+    `;
+
+    // 줄바꿈을 있는 그대로 보존하기 위해 innerHTML이 아닌 .value로 직접 대입한다.
+    $('#f_content', panel).value = t.content || '';
+    $('#f_varExample', panel).value = t.varExample || '';
+    $('#f_timing', panel).value = t.sendTiming || '';
+    $('#f_target', panel).value = t.sendTarget || '';
+    $('#f_note', panel).value = t.note || '';
+
+    renderButtonList(t);
+
+    if(VIEW_ONLY){
+      applyViewOnlyLock(panel);
+      return;
+    }
+
+    const syncField = (id, key) => {
+      $(id, panel).addEventListener('input', e=>{
+        t[key] = e.target.value;
+        renderPreview();
+        renderListMetaOnly();
+      });
+    };
+    syncField('#f_name','name');
+    syncField('#f_code','code');
+    syncField('#f_content','content');
+    syncField('#f_varExample','varExample');
+    syncField('#f_timing','sendTiming');
+    syncField('#f_target','sendTarget');
+    syncField('#f_note','note');
+
+    $('#f_status', panel).addEventListener('change', e=>{
+      t.status = e.target.value;
+      renderList();
+      renderPreview();
+    });
+
+    $('#f_msgtype', panel).addEventListener('change', e=>{
+      t.messageType = e.target.value;
+      renderEditor();
+      renderList();
+      renderPreview();
+    });
+
+    const imageInput = $('#imageFileInput', panel);
+    if(imageInput){
+      imageInput.addEventListener('change', e=>{
+        const file = e.target.files[0];
+        if(!file) return;
+        if(!file.type.startsWith('image/')){
+          toast('이미지 파일만 업로드할 수 있습니다');
+          e.target.value = '';
+          return;
+        }
+        if(file.size > MAX_IMAGE_BYTES){
+          toast('이미지 용량이 너무 큽니다 (3MB 이하로 업로드해 주세요)');
+          e.target.value = '';
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = async () => {
+          const dataUrl = reader.result;
+          const base64 = dataUrl.split(',')[1];
+          if(!isRemoteConfigured()){
+            toast('구글 시트 연동 URL이 설정되지 않아 이미지를 저장할 수 없습니다');
+            e.target.value = '';
+            return;
+          }
+          showLoading();
+          try{
+            const result = await apiUploadImage(t.id, base64, file.type);
+            // Apps Script는 실패해도 HTTP 200 + {error:...} 형태로 응답하므로
+            // fetch 자체는 성공한 것처럼 보인다. url이 없으면 실패로 간주한다.
+            if(!result || result.error || !result.url){
+              console.error('image upload response invalid', result);
+              toast('이미지 업로드에 실패했습니다. 잠시 후 다시 시도해주세요.');
+              e.target.value = '';
+              return;
+            }
+            t.image = result.url;
+            t.hasImage = !!t.image;
+            // 아직 한 번도 저장(등록)하지 않은 새 템플릿이면, 파일만 드라이브에 올려두고
+            // 시트에는 '저장' 버튼을 눌러야 반영되도록 한다.
+            if(!t._unsaved) await saveTemplateRemote(t, true);
+            renderEditor();
+            renderList();
+            renderPreview();
+            toast('이미지를 업로드했습니다');
+          }catch(err){
+            console.error('image upload failed', err);
+            toast('이미지 업로드 중 오류가 발생했습니다');
+          }finally{
+            hideLoading();
+          }
+        };
+        reader.onerror = () => toast('이미지를 읽는 중 오류가 발생했습니다');
+        reader.readAsDataURL(file);
+      });
+    }
+    const removeImageBtn = $('#removeImageBtn', panel);
+    if(removeImageBtn){
+      removeImageBtn.addEventListener('click', async ()=>{
+        t.image = null;
+        t.hasImage = false;
+        if(isRemoteConfigured()){
+          showLoading();
+          try{ await apiDeleteImage(t.id); }
+          catch(e){ console.error('image delete failed', e); }
+          finally{ hideLoading(); }
+        }
+        renderEditor();
+        renderList();
+        renderPreview();
+      });
+    }
+
+    $('#addButtonBtn', panel).addEventListener('click', ()=>{
+      t.buttons = t.buttons || [];
+      t.buttons.push(blankButton());
+      renderButtonList(t);
+      renderPreview();
+    });
+
+    $('#saveBtn', panel).addEventListener('click', async ()=>{
+      const errors = validateTemplateAgainst(t, templates);
+      if(errors.length){
+        alert('다음 항목을 확인해주세요.\n\n' + errors.join('\n'));
+        return;
+      }
+      if(!t.createdAt) t.createdAt = nowKstString();
+      t.updatedAt = nowKstString();
+      t._unsaved = false;
+      await saveTemplateRemote(t, false);
+      renderEditor();
+      renderList();
+    });
+
+    $('#deleteBtn', panel).addEventListener('click', async ()=>{
+      if(!confirm(`'${t.name || '이 템플릿'}'을(를) 삭제할까요?`)) return;
+      if(t.hasImage){
+        showLoading();
+        await (isRemoteConfigured() ? apiDeleteImage(t.id).catch(e=>console.error(e)) : Promise.resolve());
+        hideLoading();
+      }
+      await deleteTemplateRemote(t.id);
+      templates = templates.filter(x=>x.id !== t.id);
+      selectTemplate(null);
+      renderAll();
+    });
+  }
+
+  function renderOverview(panel){
+    const total = templates.length;
+    const liveCount = templates.filter(x=>x.status==='사용중').length;
+
+    if(!total){
+      panel.innerHTML = `
+        <div class="editor-empty">
+          <div class="glyph">📋</div>
+          <div style="font-weight:700; margin-bottom:6px;">등록된 템플릿이 없습니다</div>
+          <div style="font-size:13px;">${VIEW_ONLY ? '아직 등록된 템플릿이 없습니다.' : "오른쪽 위 '+ 새 템플릿' 버튼으로 첫 템플릿을 만들어 보세요."}</div>
+        </div>`;
+      return;
+    }
+
+    const cardsHtml = sortByRecentlyCreated(templates).map(tpl=>{
+      const meta = STATUS_META[tpl.status] || STATUS_META['선택'];
+      const buttonCount = (tpl.buttons||[]).filter(b=>b.label).length;
+      return `
+      <div class="overview-card" data-id="${tpl.id}">
+        <div class="overview-card-top">
+          <span class="tpl-code">${escapeHtml(tpl.code||'코드 없음')}</span>
+          <span class="badge ${meta.cls}">${escapeHtml(tpl.status||'선택')}</span>
+        </div>
+        <div class="overview-card-name">${escapeHtml(tpl.name||'(제목 없음)')}</div>
+        <div class="overview-card-meta">${escapeHtml(tpl.messageType||'기본형')}${tpl.messageType==='이미지형' && tpl.hasImage ? ' · 이미지 첨부됨' : ''}${buttonCount ? ` · 버튼 ${buttonCount}개` : ''}</div>
+      </div>`;
+    }).join('');
+
+    panel.innerHTML = `
+      <div class="overview-head">
+        <div>
+          <div class="overview-title">전체 템플릿 목록</div>
+          <div class="overview-sub">총 ${total}개 · 사용중 ${liveCount}개 · 카드를 클릭하면 상세 화면으로 이동합니다.</div>
+        </div>
+      </div>
+      <div class="overview-grid">${cardsHtml}</div>
+    `;
+
+    $$('.overview-card', panel).forEach(el=>{
+      el.addEventListener('click', ()=>{
+        selectTemplate(el.dataset.id);
+        renderAll();
+      });
+    });
+  }
+
+  function buttonTypeSelectOptions(selected){
+    return BUTTON_TYPE_LIST.map(o=>`<option value="${o}" ${o===selected?'selected':''}>${o} (${BUTTON_TYPE_CONFIG[o].code})</option>`).join('');
+  }
+
+  function renderButtonList(t){
+    const wrap = $('#buttonList');
+    if(!wrap) return;
+    t.buttons = t.buttons || [];
+    if(!t.buttons.length){
+      wrap.innerHTML = `<div style="font-size:12.5px; color:var(--ink-soft); margin-bottom:8px;">등록된 버튼이 없습니다.</div>`;
+      return;
+    }
+
+    wrap.innerHTML = t.buttons.map((b, i)=>{
+      const cfg = BUTTON_TYPE_CONFIG[b.type] || BUTTON_TYPE_CONFIG['웹링크'];
+      const labelFieldHtml = cfg.fixedLabel
+        ? `<div><label>버튼명</label><input type="text" value="${escapeAttr(cfg.fixedLabel)}" disabled></div>`
+        : `<div><label>버튼명<span class="req-dot"></span></label><input type="text" data-field="label" data-idx="${i}" value="${escapeAttr(b.label)}" placeholder="작성하기"></div>`;
+      const extraFieldsHtml = cfg.fields.map(f=>{
+        const meta = FIELD_META[f];
+        const isFull = f === 'mobileUrl' || f === 'pcUrl' || f === 'realUrlMobile' || f === 'realUrlPc';
+        const isOptional = meta.label.includes('(선택)');
+        return `<div class="${isFull ? 'full':''}">
+          <label>${meta.label}${isOptional ? '' : '<span class="req-dot"></span>'}</label>
+          <input type="text" data-field="${f}" data-idx="${i}" value="${escapeAttr(b[f])}" placeholder="${meta.placeholder}">
+        </div>`;
+      }).join('');
+
+      return `
+      <div class="btn-block" data-idx="${i}">
+        <div class="btn-block-head">
+          <span>버튼 ${i+1}</span>
+          <button type="button" class="btn-ghost btn-sm" data-remove="${i}">삭제</button>
+        </div>
+        <div class="btn-grid">
+          <div>
+            <label>버튼타입</label>
+            <select data-field="type" data-idx="${i}">${buttonTypeSelectOptions(b.type)}</select>
+          </div>
+          ${labelFieldHtml}
+          ${extraFieldsHtml}
+        </div>
+        ${cfg.help ? `<div class="btn-help">${escapeHtml(cfg.help)}</div>` : ''}
+      </div>`;
+    }).join('');
+
+    $$('[data-field]', wrap).forEach(el=>{
+      const evt = el.tagName === 'SELECT' ? 'change' : 'input';
+      el.addEventListener(evt, ()=>{
+        const idx = Number(el.dataset.idx);
+        const field = el.dataset.field;
+        t.buttons[idx][field] = el.value;
+        if(field === 'type'){
+          const btn = t.buttons[idx];
+          const cfg2 = BUTTON_TYPE_CONFIG[el.value];
+          if(cfg2.fixedLabel){
+            btn.label = cfg2.fixedLabel;
+          }else if(el.value === '전화하기' && !btn.label.trim()){
+            btn.label = DEFAULT_TEL_LABEL;
+          }
+          if(el.value === '웹링크'){
+            if(!btn.mobileUrl.trim()) btn.mobileUrl = DEFAULT_LANDING_URL;
+            if(!btn.pcUrl.trim()) btn.pcUrl = DEFAULT_LANDING_URL;
+          }
+          renderButtonList(t);
+        }
+        renderPreview();
+      });
+    });
+    $$('[data-remove]', wrap).forEach(el=>{
+      el.addEventListener('click', ()=>{
+        t.buttons.splice(Number(el.dataset.remove), 1);
+        renderButtonList(t);
+        renderPreview();
+      });
+    });
+  }
+
+  function renderListMetaOnly(){
+    const t = getSelected();
+    if(!t) return;
+    const el = document.querySelector(`.tpl-item[data-id="${t.id}"]`);
+    if(el){
+      const codeEl = el.querySelector('.tpl-code');
+      const nameEl = el.querySelector('.tpl-name');
+      if(codeEl) codeEl.textContent = t.code || '코드 없음';
+      if(nameEl) nameEl.textContent = t.name || '(제목 없음)';
+    }
+    $('#countLabel').textContent = `총 ${templates.length}개 · 사용중 ${templates.filter(x=>x.status==='사용중').length}개`;
+  }
+
+  function renderPreview(){
+    const panel = $('#previewPanel');
+    const t = getSelected();
+
+    if(!t){
+      panel.innerHTML = `<h3>미리보기</h3><div style="font-size:12.5px; color:var(--ink-soft); padding:20px 0; text-align:center;">템플릿을 선택하면<br>미리보기가 표시됩니다.</div>`;
+      return;
+    }
+
+    const buttonsHtml = (t.buttons||[]).filter(b=>b.label).map(b=>`<button type="button">${escapeHtml(b.label)}</button>`).join('');
+    const meta = STATUS_META[t.status] || STATUS_META['선택'];
+    const now = new Date();
+    const hour24 = now.getHours();
+    const ampm = hour24 < 12 ? '오전' : '오후';
+    const hour12 = ((hour24 % 12) || 12);
+    const minute = String(now.getMinutes()).padStart(2,'0');
+    const timeLabel = `${ampm} ${hour12}:${minute}`;
+
+    const hasExample = !!(t.varExample && t.varExample.trim());
+    const displayedContent = (previewShowExample && hasExample) ? t.varExample : t.content;
+
+    panel.innerHTML = `
+      <h3>미리보기</h3>
+      <div class="preview-toggle">
+        <button type="button" class="preview-toggle-btn ${!previewShowExample ? 'active' : ''}" data-mode="before">변수 적용 전</button>
+        <button type="button" class="preview-toggle-btn ${previewShowExample ? 'active' : ''}" data-mode="after">변수 적용 후</button>
+      </div>
+      <div class="kakao-frame">
+        <div class="kakao-bubble-wrap">
+          <div class="kakao-bubble">
+            <span class="kakao-arrived">알림톡 도착</span>
+            ${t.messageType === '이미지형' && t.image ? `<img src="${t.image}" alt="템플릿 이미지" class="kakao-image">` : ''}
+            <div class="kakao-body">${escapeHtml(displayedContent || '내용을 입력하면 여기에 표시됩니다.')}</div>
+            ${buttonsHtml ? `<div class="kakao-buttons">${buttonsHtml}</div>` : ''}
+          </div>
+          <span class="kakao-msg-time">${timeLabel}</span>
+        </div>
+      </div>
+      ${previewShowExample && !hasExample ? `<p class="muted" style="font-size:11.5px; margin-top:8px;">등록된 변수 적용 예시가 없어 원본 내용을 표시합니다.</p>` : ''}
+
+      <div class="info-block">
+        <h4>상태</h4>
+        <p><span class="badge ${meta.cls}">${escapeHtml(t.status||'선택')}</span></p>
+        <h4>발송 시점</h4>
+        ${renderLines(t.sendTiming)}
+        <h4>발송 대상</h4>
+        ${renderLines(t.sendTarget)}
+        <h4>비고</h4>
+        <p class="${t.note ? '' : 'muted'}">${escapeHtml(t.note || '작성된 비고가 없습니다.')}</p>
+      </div>
+    `;
+
+    $$('.preview-toggle-btn', panel).forEach(el=>{
+      el.addEventListener('click', ()=>{
+        previewShowExample = el.dataset.mode === 'after';
+        renderPreview();
+      });
+    });
+  }
+
+  function renderLines(text){
+    if(!text || !text.trim()) return `<p class="muted">등록된 내용이 없습니다.</p>`;
+    const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
+    return `<ul>${lines.map(l=>`<li>${escapeHtml(l)}</li>`).join('')}</ul>`;
+  }
+
+
+  $('#overviewBtn').addEventListener('click', ()=>{
+    selectTemplate(null);
+    renderAll();
+  });
+
+  if(VIEW_ONLY){
+    const newTplBtn = $('#newTplBtn');
+    if(newTplBtn) newTplBtn.style.display = 'none';
+    const badge = $('#viewOnlyBadge');
+    if(badge) badge.style.display = 'inline-block';
+  }else{
+    $('#newTplBtn').addEventListener('click', ()=>{
+      const t = {
+        id: uid(), code:'', name:'', status:'선택',
+        messageType:'기본형', hasImage:false, image:null, content:'', varExample:'',
+        buttons:[], note:'', sendTiming:'', sendTarget:'',
+        _unsaved: true // 저장 버튼을 눌러야만 시트에 반영됨
+      };
+      templates.unshift(t);
+      selectTemplate(t.id);
+      renderAll();
+    });
+  }
+
+  $('#searchInput').addEventListener('input', e=>{ searchTerm = e.target.value; renderList(); });
+
+  function buttonSummaryText(b){
+    const cfg = BUTTON_TYPE_CONFIG[b.type] || BUTTON_TYPE_CONFIG['웹링크'];
+    const mainField = cfg.fields[0];
+    const val = mainField ? (b[mainField] || '') : '';
+    const label = cfg.fixedLabel || b.label || '';
+    return `${b.type}(${label})${val ? ': ' + val : ''}`;
+  }
+
+  // 저장된 값이 UTC(...Z)든 이미 KST 문자열이든 상관없이 항상 한국 시간 문자열로 통일한다.
+  // migrateTemplate(로드/정리 시)과 엑셀 내보내기 양쪽에서 공용으로 사용.
+  function toKstDisplay(v){
+    if(!v) return '';
+    const s = String(v);
+    // "Z"로 끝나거나 "T"가 포함된 ISO 형식이 아니면 이미 정리된 값이므로 그대로 사용
+    if(!/Z$/.test(s) && !/T\d/.test(s)) return s;
+    const d = new Date(s);
+    if(isNaN(d.getTime())) return s;
+    const parts = new Intl.DateTimeFormat('ko-KR', {
+      timeZone:'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit',
+      hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false
+    }).formatToParts(d);
+    const get = t => (parts.find(p=>p.type===t) || {}).value || '';
+    return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
+  }
+
+  $('#exportBtn').addEventListener('click', ()=>{
+    const cols = ['템플릿 코드','템플릿명','상태','메시지유형','템플릿 내용','변수 적용 예시','버튼','발송 시점','발송 대상','비고','이미지 여부','이미지 URL','등록일시','수정일시'];
+    const rows = templates.map(t=>[
+      t.code || '',
+      t.name || '',
+      t.status || '',
+      t.messageType || '',
+      t.content || '',
+      t.varExample || '',
+      (t.buttons||[]).map(buttonSummaryText).join(' / '),
+      t.sendTiming || '',
+      t.sendTarget || '',
+      t.note || '',
+      t.hasImage ? 'Y' : '',
+      t.image || '',
+      toKstDisplay(t.createdAt),
+      toKstDisplay(t.updatedAt)
+    ]);
+
+    const cellHtml = (v) => escapeHtml(String(v)).replace(/\n/g, '<br>');
+    const theadHtml = `<tr>${cols.map(c=>`<th>${escapeHtml(c)}</th>`).join('')}</tr>`;
+    const tbodyHtml = rows.map(r=>`<tr>${r.map(v=>`<td>${cellHtml(v)}</td>`).join('')}</tr>`).join('');
+    const tableHtml = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>템플릿</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head>
+      <body><table border="1">${theadHtml}${tbodyHtml}</table></body></html>`;
+
+    const blob = new Blob(['\ufeff' + tableHtml], {type:'application/vnd.ms-excel;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `알림톡_템플릿_${new Date().toISOString().slice(0,10)}.xls`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast('엑셀(.xls) 파일로 내보냈습니다');
+  });
+
+  loadData();
+})();
+</script>
+</body>
+</html>
