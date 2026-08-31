@@ -152,3 +152,28 @@ function deleteImageFile(id){
   }
   return {ok:true};
 }
+
+// 일회성 정리용 함수. Apps Script 편집기에서 함수 선택 → 실행으로 한 번만 수동 실행할 것
+// (doGet/doPost/google.script.run 어디서도 호출되지 않음). 기존에 등록된 행들을 등록일(createdAt)
+// 기준 최신순으로 재정렬한다 — 이후 새로 등록되는 행은 saveTemplate()이 항상 2행에 넣어주므로
+// 이건 "이번 한 번만" 기존 데이터를 정리하기 위한 용도.
+function sortExistingRowsByCreatedAtDesc(){
+  const sheet = getSheet();
+  const lastRow = sheet.getLastRow();
+  if(lastRow < 3) return; // 데이터가 1개 이하면 정렬할 필요 없음
+  const range = sheet.getRange(2, 1, lastRow - 1, HEADERS.length);
+  const rows = range.getValues();
+  const createdAtIdx = HEADERS.indexOf('createdAt');
+
+  const toTimestamp = (v) => {
+    if(v instanceof Date) return v.getTime();
+    const s = String(v || '').trim();
+    if(!s) return 0;
+    const iso = s.includes('T') ? s : s.replace(' ', 'T') + '+09:00';
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? 0 : d.getTime();
+  };
+
+  rows.sort((a, b) => toTimestamp(b[createdAtIdx]) - toTimestamp(a[createdAtIdx]));
+  range.setValues(rows);
+}
