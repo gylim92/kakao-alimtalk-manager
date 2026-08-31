@@ -68,7 +68,13 @@ function listTemplates(){
   const headers = rows[0];
   return rows.slice(1).filter(r=>r[0]).map(r=>{
     const obj = {};
-    headers.forEach((h,i)=> obj[h] = r[i]);
+    headers.forEach((h,i)=>{
+      // 시트가 등록일/수정일 등을 실제 Date 형식으로 자동 인식한 경우, google.script.run이
+      // Date 객체를 직렬화하지 못해 응답 전체가 null이 되는 문제가 있어 문자열로 변환해서 반환한다.
+      let v = r[i];
+      if(v instanceof Date) v = Utilities.formatDate(v, 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss');
+      obj[h] = v;
+    });
     obj.buttons = obj.buttons ? JSON.parse(obj.buttons) : [];
     obj.hasImage = obj.hasImage === true || obj.hasImage === 'TRUE';
     return obj;
