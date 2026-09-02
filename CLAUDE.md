@@ -9,12 +9,15 @@ Confluence 표 대신 관리하기 위한 웹 앱. 실제 카카오톡 화면과
 
 | 구성 요소 | 위치 | 역할 |
 |---|---|---|
-| 앱 화면(클라이언트) | GitHub 저장소 `index.html` | 사용자가 보는 UI, 이 저장소가 소스 오브 트루스 |
+| 내부 직원용 화면 (현재 메인 도구) | 같은 Apps Script 프로젝트의 `Index.html` 파일 | 실제로 매일 쓰는 화면. 저장소의 `apps-script-index.html`이 이 파일의 백업/소스. `/po/` 리디렉션으로 접속 |
+| 외부 공유·읽기전용 화면 | GitHub 저장소 `index.html`, GitHub Pages로 배포 | `?view=1&sid=...`로 외주 개발자 등에게 실제 데이터를 읽기전용으로 공유할 때만 씀. 내부 직원의 일상 편집 도구 아님 (메인 배포가 조직 제한이라 CORS로 실제 데이터를 못 불러오고 샘플만 표시됨) |
 | 배포 URL | GitHub Pages | `https://[계정or조직명].github.io/kakao-alimtalk-manager/` |
 | 데이터 저장소 | 구글 스프레드시트 (`templates` 시트) | 템플릿 데이터 원본 |
 | 이미지 저장소 | 구글 드라이브 폴더 | 업로드된 템플릿 이미지 원본 |
 | 백엔드 API | 구글 Apps Script (스프레드시트에 연결됨) | 저장/조회/삭제/이미지 업로드 처리. 코드 백업: `apps-script-backup.gs` |
-| 내부용 화면(신규) | 같은 Apps Script 프로젝트의 `Index.html` 파일 | 화면 코드 백업: `apps-script-index.html`. 짧은 접속 주소: GitHub Pages `/po/` |
+
+`index.html`과 `apps-script-index.html`은 화면 코드 대부분을 공유하지만 서로 자동 동기화되지 않음 —
+UI를 고칠 땐 관련 있는 쪽(보통 둘 다)에 각각 반영해야 함.
 
 ## Apps Script가 직접 서빙하는 내부용 신규 버전 (2026-08-31 배포·테스트 완료)
 아래 "백엔드 접근 권한" 항목에서 설명하는 CORS 문제와 `WRITE_SECRET` 노출 문제를 근본적으로 해결하기 위해,
