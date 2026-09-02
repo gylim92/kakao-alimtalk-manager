@@ -14,6 +14,7 @@ Confluence 표 대신 관리하기 위한 웹 앱. 실제 카카오톡 화면과
 | 데이터 저장소 | 구글 스프레드시트 (`templates` 시트) | 템플릿 데이터 원본 |
 | 이미지 저장소 | 구글 드라이브 폴더 | 업로드된 템플릿 이미지 원본 |
 | 백엔드 API | 구글 Apps Script (스프레드시트에 연결됨) | 저장/조회/삭제/이미지 업로드 처리. 코드 백업: `apps-script-backup.gs` |
+| 내부용 화면(신규) | 같은 Apps Script 프로젝트의 `Index.html` 파일 | 화면 코드 백업: `apps-script-index.html`. 짧은 접속 주소: GitHub Pages `/po/` |
 
 ## Apps Script가 직접 서빙하는 내부용 신규 버전 (2026-08-31 배포·테스트 완료)
 아래 "백엔드 접근 권한" 항목에서 설명하는 CORS 문제와 `WRITE_SECRET` 노출 문제를 근본적으로 해결하기 위해,
@@ -78,12 +79,15 @@ GitHub Pages + `fetch()` 구조 대신 **Apps Script가 화면(HTML)까지 직�
 - 템플릿 필드: `id, code, name, status, messageType, content, varExample, buttons[], sendTiming, sendTarget, note, hasImage, imageUrl, updatedAt, createdAt`
 - `varExample`: 템플릿 내용(`content`)의 `#{변수}`에 실제 값을 채운 예시를 사용자가 직접 입력하는 필드(선택 입력, 자동 생성 아님). 미리보기 상단의 "변수 적용 전/후" 토글로 확인 — 기본값은 "적용 전"(`content` 그대로 표시)
 - 상태(status) 8단계: 선택(기본값) / 검수 전 / 검수 중 / 검수완료 / 사용중 / 휴면 / 중지 / 차단
+  - 상태 필터 드롭다운에는 '선택'을 제외함 (등록 시 필수값이라 실제로 이 상태로 저장되는 템플릿이 없음)
+  - 배지 색상은 진행 단계별로 그룹: 검수 전·휴면·중지·차단(연그레이) < 검수 중(옐로우) < 검수완료(그린) < 사용중(블루)
 - 메시지유형(messageType): 기본형(기본값) / 이미지형 — **강조표기형·아이템리스트형은 의도적으로 제외**
 - 버튼 타입 11종: 웹링크(기본값) / 앱링크 / 배송조회 / 봇키워드 / 봇전환 / 상담톡전환 / 메시지전달 / 비즈니스폼 / 전화하기 / 지도보기 / 채널 추가
   (타입별로 필요한 입력 필드가 다름 — 코드의 `BUTTON_TYPE_CONFIG` 참고)
 - 웹링크/앱링크 버튼에는 `realUrlMobile`/`realUrlPc`(실랜딩 URL - Mobile/PC, 선택 입력) 필드가 있음 — 카카오 심사용 `#{랜딩URL}` 변수와 별개로, 실제로 연결되는 페이지를 Mobile/PC 구분해서 팀 내부 참고용으로 기록하는 필드
 - 버튼 타입 선택 시 자동 채움(모두 수정 가능): 웹링크 → Mobile/PC 링크에 `https://#{랜딩URL}` 자동 입력, 전화하기 → 버튼명이 비어 있으면 "고객센터 연결" 자동 입력. 이미 값이 있으면 덮어쓰지 않음
 - 템플릿 목록(사이드바·전체 목록 카드)은 **등록일(createdAt) 기준 최근 등록순**으로 정렬됨. 수정일(updatedAt) 변경은 정렬 순서에 영향 없음
+- 구글 시트 자체도 최근 등록순으로 보이도록, `saveTemplate()`이 새 템플릿을 맨 아래(appendRow)가 아니라 **헤더 바로 다음(2행)에 삽입**함. 기존에 이미 등록돼 있던 행들은 자동으로 재정렬되지 않으므로, 한 번은 `Code.gs`의 `sortExistingRowsByCreatedAtDesc()`를 편집기에서 수동 실행해서 정리함 (이후로는 저장할 때마다 자동으로 맨 위에 쌓이므로 다시 실행할 필요 없음)
 
 ## 절대 되돌리면 안 되는 결정들
 - **강조유형 필드는 제거됨** — 요청에 따라 삭제. 되살리지 말 것.
@@ -94,14 +98,20 @@ GitHub Pages + `fetch()` 구조 대신 **Apps Script가 화면(HTML)까지 직�
 - **이미지**: base64로 시트에 저장하지 않고, 구글 드라이브에 파일로 올린 뒤 URL만 시트에 저장 (용량 문제 때문)
 - **updatedAt은 한국 시간(KST)으로 저장** (`Utilities.formatDate(..., 'Asia/Seoul', ...)`, UTC 아님)
 - **hasImage가 false일 때 시트에는 빈 칸으로 저장** (FALSE 텍스트로 표기하면 "이미지 등록 실패"로 오해할 수 있어서)
+- **엑셀 내보내기의 줄바꿈은 `<br style="mso-data-placement:same-cell;">`로 처리** — 이 style 속성이 없으면 엑셀이 셀 안 줄바꿈을 새 행으로 잘못 쪼개서 열 수 있음 (실제로 겪은 문제, 지우지 말 것)
 
 ## 배포 관련 주의사항
-- Apps Script 코드를 수정하면 **반드시 "배포 관리 → 편집 → 새 버전 → 배포"**까지 해야 실제 반영됨 (저장만 하면 반영 안 됨)
-- 배포 액세스 권한: 현재 meatbox.co.kr 조직 계정으로 제한 (사내 전용 도구이므로 의도적 설정)
-- GitHub 저장소는 Public — Apps Script URL이 코드에 노출되지만, 실제 데이터 접근은 meatbox.co.kr 구글 로그인이 있어야 가능해서 허용 범위로 판단함
+- Apps Script 코드를 수정하면 **반드시 "배포 관리 → 편집 → 새 버전 → 배포"**까지 해야 실제 반영됨 (저장만 하면 반영 안 됨). `Code.gs`는 세 배포가 전부 공유하므로 하나만 고쳐도 되지만, **배포는 실제로 쓰는 배포마다 각각 새 버전으로 다시 눌러줘야** 반영됨
+- 같은 Apps Script 프로젝트에 배포가 **3개** 있음 — 각각 액세스 권한이 다르니 헷갈리지 말 것:
+  1. **내부용(신규, 현재 메인 도구)** — 액세스: meatbox.co.kr 조직 계정 제한. `Index.html`을 `HtmlService`로 서빙. `/po/` 리디렉션이 여기로 감
+  2. **메인(구, WRITE_SECRET 보호)** — 액세스: 모든 사용자. GitHub Pages `index.html`이 fetch로 호출. 1번으로 전환 완료되면 정리 고려 대상
+  3. **읽기전용(외주 공유용)** — 액세스: 모든 사용자. `?action=list`만 응답. 외주 개발자에게 `?view=1&sid=...` 링크로 공유
+- GitHub 저장소는 Public. 1번 배포는 진짜 로그인 제한이 걸려있어 URL이 노출돼도 안전(`po/index.html`에 실제 URL 커밋함). 2·3번은 로그인 제한이 없어 URL을 저장소에 커밋하면 안 됨 — `WRITE_SECRET`으로만 쓰기를 막음
 
 ## 다음에 하고 싶은 것 (TODO)
-- [ ] 회사 도메인(meatbox.co.kr) 서브도메인 연결 (예: alimtalk.meatbox.co.kr)
+- [ ] 회사 도메인(meatbox.co.kr) 서브도메인 연결 (예: alimtalk.meatbox.co.kr) — 지금은 `/po/` 리디렉션 페이지로 임시 대체 중
+- [ ] GitHub 저장소를 조직(Organization) 계정으로 이전하는 것 검토 중 (URL을 `meatbox.github.io`로 바꾸고, 유료 플랜이면 Private 전환도 가능해짐 — 현재 무료 개인 계정이라 보류)
+- [ ] 전환이 확실해지면 기존 "메인"(WRITE_SECRET/모든 사용자) 배포를 조직 제한으로 되돌리거나 정리
 - [ ] (필요 시 이후 요청사항을 여기에 계속 적어두기)
 
 ## 새 대화에서 이어서 개발하고 싶을 때
@@ -110,6 +120,6 @@ GitHub Pages + `fetch()` 구조 대신 **Apps Script가 화면(HTML)까지 직�
 ```
 알림톡 템플릿 관리 앱을 이어서 개발하고 싶어.
 - GitHub 저장소: https://github.com/gylim92/kakao-alimtalk-manager
-- 이 저장소의 PROJECT.md와 index.html, apps-script-backup.gs를 먼저 읽어줘.
+- 이 저장소의 CLAUDE.md와 index.html, apps-script-index.html, apps-script-backup.gs를 먼저 읽어줘.
 - [여기에 하고 싶은 작업 내용 작성]
 ```
